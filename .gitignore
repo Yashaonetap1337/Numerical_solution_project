@@ -1,0 +1,23 @@
+# Скомпилированные файлы
+*.exe
+*.obj
+*.lib
+*.dll
+*.pdb
+*.txt
+*.csv
+
+# Временные файлы MSVC
+Debug/
+Release/
+x64/
+*.sdf
+*.opensdf
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+solver.exe
+
+# Локальные настройки
+.vs/
