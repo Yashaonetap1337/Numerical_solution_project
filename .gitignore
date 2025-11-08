@@ -4,7 +4,6 @@
 *.lib
 *.dll
 *.pdb
-*.txt
 *.csv
 
 # Временные файлы MSVC
