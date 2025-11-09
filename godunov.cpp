@@ -7,21 +7,21 @@
 
 
 
-// определяем константы для итерационного решателя
+// РѕРїСЂРµРґРµР»СЏРµРј РєРѕРЅСЃС‚Р°РЅС‚С‹ РґР»СЏ РёС‚РµСЂР°С†РёРѕРЅРЅРѕРіРѕ СЂРµС€Р°С‚РµР»СЏ
 constexpr int MAX_ITERATIONS = 20;
 constexpr double GUESSP_TOLERANCE = 1e-6;
 
 
-// функция давления f(p*, W_k) и ее производная f'(p*, W_k)
-// они связывают давление p* с изменением скорости через волну.
-// W_k - состояние (State) в k-той области (слева L или справа R)
-// p_star - искомое давление в "звездной" области
+// С„СѓРЅРєС†РёСЏ РґР°РІР»РµРЅРёСЏ f(p*, W_k) Рё РµРµ РїСЂРѕРёР·РІРѕРґРЅР°СЏ f'(p*, W_k)
+// РѕРЅРё СЃРІСЏР·С‹РІР°СЋС‚ РґР°РІР»РµРЅРёРµ p* СЃ РёР·РјРµРЅРµРЅРёРµРј СЃРєРѕСЂРѕСЃС‚Рё С‡РµСЂРµР· РІРѕР»РЅСѓ.
+// W_k - СЃРѕСЃС‚РѕСЏРЅРёРµ (State) РІ k-С‚РѕР№ РѕР±Р»Р°СЃС‚Рё (СЃР»РµРІР° L РёР»Рё СЃРїСЂР°РІР° R)
+// p_star - РёСЃРєРѕРјРѕРµ РґР°РІР»РµРЅРёРµ РІ "Р·РІРµР·РґРЅРѕР№" РѕР±Р»Р°СЃС‚Рё
 static void evaluate_pressure_functions(const double p_star, const State& W_k, const double gamma,
     double& f, double& f_prime)
 {
-    const double a_k = soundSpeed(W_k, gamma); // скорость звука в области k
+    const double a_k = soundSpeed(W_k, gamma); // СЃРєРѕСЂРѕСЃС‚СЊ Р·РІСѓРєР° РІ РѕР±Р»Р°СЃС‚Рё k
 
-    if (p_star > W_k.p) { // УДАРНАЯ ВОЛНА 
+    if (p_star > W_k.p) { // РЈР”РђР РќРђРЇ Р’РћР›РќРђ 
         const double A = 2.0 / ((gamma + 1.0) * W_k.rho);
         const double B = (gamma - 1.0) / (gamma + 1.0) * W_k.p;
         const double p_sqrt = std::sqrt(A / (p_star + B));
@@ -29,7 +29,7 @@ static void evaluate_pressure_functions(const double p_star, const State& W_k, c
         f = (p_star - W_k.p) * p_sqrt;
         f_prime = (1.0 - (p_star - W_k.p) / (2.0 * (B + p_star))) * p_sqrt;
     }
-    else { //  ВОЛНА РАЗРЕЖЕНИЯ 
+    else { //  Р’РћР›РќРђ Р РђР—Р Р•Р–Р•РќРРЇ 
         const double p_ratio = p_star / W_k.p;
         const double p_pow = std::pow(p_ratio, (gamma - 1.0) / (2.0 * gamma));
 
@@ -38,148 +38,57 @@ static void evaluate_pressure_functions(const double p_star, const State& W_k, c
     }
 }
 
-void acoustic_solver(Grid& grid, const Config& cfg)
-{
-    State W_L = cfg.phys.left;
-    State W_R = cfg.phys.right;
-    const double gamma = cfg.phys.gamma;
 
-    const double c_L = soundSpeed(W_L, gamma);
-    const double c_R = soundSpeed(W_R, gamma);
-
-    std::cout << "=== ACOUSTIC SOLVER DEBUG ===" << std::endl;
-    std::cout << "Left state: rho=" << W_L.rho << " u=" << W_L.u << " p=" << W_L.p << " c=" << c_L << std::endl;
-    std::cout << "Right state: rho=" << W_R.rho << " u=" << W_R.u << " p=" << W_R.p << " c=" << c_R << std::endl;
-
-    // Вычисляем p* и u*
-    double numerator_p = W_R.rho * W_L.rho * c_R * c_L * ((W_L.u - W_R.u) + W_R.p / (W_R.rho * c_R) + W_L.p / (W_L.rho * c_L));
-    double denominator_p = W_L.rho * c_L + W_R.rho * c_R;
-    double p_star = std::max(1e-9, numerator_p / denominator_p);
-
-    double numerator_u = (W_L.u * W_L.rho * c_L - W_R.u * W_R.rho * c_R) + (W_L.p - W_R.p);
-    double denominator_u = W_L.rho * c_L + W_R.rho * c_R;
-    double u_star = numerator_u / denominator_u;
-
-    // Плотности в звездных областях
-    double rho_star_L = -(W_L.p - p_star) / (c_L * c_L) + W_L.rho;
-    double rho_star_R = -(W_R.p - p_star) / (c_R * c_R) + W_R.rho;
-
-    // ИСПРАВЛЕННЫЕ ГРАНИЦЫ ВОЛН - учитываем скорость газа!
-    const double x_left_wave = (W_L.u - c_L) * cfg.grid.t_final;
-    const double x_contact = u_star * cfg.grid.t_final;
-    const double x_right_wave = (W_R.u + c_R) * cfg.grid.t_final;
-
-    std::cout << "CORRECTED Wave boundaries: left=" << x_left_wave
-        << " contact=" << x_contact << " right=" << x_right_wave << std::endl;
-
-    // Проверим порядок границ
-    if (x_left_wave > x_right_wave) {
-        std::cout << "WARNING: Wave boundaries are inverted! This indicates strong shock conditions." << std::endl;
-    }
-
-    int region1_count = 0, region2_count = 0, region3_count = 0, region4_count = 0;
-
-    for (int i = 0; i < grid.W.size(); ++i) {
-        double x = grid.x_centers[i];
-
-        // ИСПРАВЛЕННАЯ ЛОГИКА ОБЛАСТЕЙ
-        if (x <= x_left_wave) {
-            grid.W[i] = W_L;
-            region1_count++;
-        }
-        else if (x <= x_contact) {
-            grid.W[i].rho = rho_star_L;
-            grid.W[i].u = u_star;
-            grid.W[i].p = p_star;
-            region2_count++;
-        }
-        else if (x <= x_right_wave) {
-            grid.W[i].rho = rho_star_R;
-            grid.W[i].u = u_star;
-            grid.W[i].p = p_star;
-            region3_count++;
-        }
-        else {
-            grid.W[i] = W_R;
-            region4_count++;
-        }
-    }
-
-    std::cout << "--- CORRECTED Region statistics ---" << std::endl;
-    std::cout << "Region 1 (left): " << region1_count << " cells" << std::endl;
-    std::cout << "Region 2 (star left): " << region2_count << " cells" << std::endl;
-    std::cout << "Region 3 (star right): " << region3_count << " cells" << std::endl;
-    std::cout << "Region 4 (right): " << region4_count << " cells" << std::endl;
-
-    // Дополнительная проверка для проблемной зоны
-    std::cout << "--- Checking transition areas ---" << std::endl;
-    for (int i = 0; i < grid.W.size(); ++i) {
-        double x = grid.x_centers[i];
-        if (std::abs(x - x_contact) < 0.01 || std::abs(x - x_right_wave) < 0.01) {
-            std::cout << "TRANSITION: x=" << x << " rho=" << grid.W[i].rho
-                << " (contact at " << x_contact << ", right wave at " << x_right_wave << ")" << std::endl;
-        }
-    }
-}
-
-
-// решатель Римана
+// СЂРµС€Р°С‚РµР»СЊ Р РёРјР°РЅР°
 static State solve_exact_riemann_problem(const State& W_L, const State& W_R, const double gamma, const ApproximationType approx_type) {
-    // итерационный поиск давления p* и скорости u*
+    // ГЁГІГҐГ°Г Г¶ГЁГ®Г­Г­Г»Г© ГЇГ®ГЁГ±ГЄ Г¤Г ГўГ«ГҐГ­ГЁГї p* ГЁ Г±ГЄГ®Г°Г®Г±ГІГЁ u*
     double p_star;
     double u_star;
     const double a_L = soundSpeed(W_L, gamma);
     const double a_R = soundSpeed(W_R, gamma);
-    const double TOL = 1e-9;//вот тут надо будет побаловаться чтобы чекнуть чзх втф
-    const double du = W_R.u - W_L.u; //нахуя? хз
+    const double TOL = 1e-9;//ГўГ®ГІ ГІГіГІ Г­Г Г¤Г® ГЎГіГ¤ГҐГІ ГЇГ®ГЎГ Г«Г®ГўГ ГІГјГ±Гї Г·ГІГ®ГЎГ» Г·ГҐГЄГ­ГіГІГј Г·Г§Гµ ГўГІГґ
+    const double du = W_R.u - W_L.u; //Г­Г ГµГіГї? ГµГ§
 
 
 
-   // используем приближение для двух волн разрежения 
+    // РЅР°С‡Р°Р»СЊРЅРѕРµ РїСЂРёР±Р»РёР¶РµРЅРёРµ РґР»СЏ РґР°РІР»РµРЅРёСЏ
     switch (approx_type) {
-        case ApproximationType::RAREFACTION: {
-            // Приближение двух волн разрежения
-            const double p_pow_L = std::pow(W_L.p, (gamma - 1.0) / (2.0 * gamma));
-            const double p_pow_R = std::pow(W_R.p, (gamma - 1.0) / (2.0 * gamma));
+    case ApproximationType::RAREFACTION: {
+        // РїСЂРёР±Р»РёР¶РµРЅРёРµ РґРІСѓС… РІРѕР»РЅ СЂР°Р·СЂРµР¶РµРЅРёСЏ (TRRS)
+        const double p_pow_L = std::pow(W_L.p, (gamma - 1.0) / (2.0 * gamma));
+        const double p_pow_R = std::pow(W_R.p, (gamma - 1.0) / (2.0 * gamma));
+        const double numerator = a_L + a_R - ((gamma - 1.0) / 2.0) * (W_R.u - W_L.u);
+        const double denominator = a_L / p_pow_L + a_R / p_pow_R;
+        p_star = std::pow(numerator / denominator, 2.0 * gamma / (gamma - 1.0));
+        break;
+    }
+    case ApproximationType::SHOCK: {
+        // РїСЂРёР±Р»РёР¶РµРЅРёРµ РґРІСѓС… СѓРґР°СЂРЅС‹С… РІРѕР»РЅ (TSRS) 
+        const double A_L = 2.0 / ((gamma + 1.0) * W_L.rho);
+        const double B_L = (gamma - 1.0) / (gamma + 1.0) * W_L.p;
+        const double A_R = 2.0 / ((gamma + 1.0) * W_R.rho);
+        const double B_R = (gamma - 1.0) / (gamma + 1.0) * W_R.p;
 
-            const double numerator = a_L + a_R - ((gamma - 1.0) / 2.0) * (W_R.u - W_L.u);
-            const double denominator = a_L / p_pow_L + a_R / p_pow_R;
+        const double g = (A_L / (A_L + A_R)) * (W_R.p - W_L.p)
+            + (A_R / (A_L + A_R)) * (W_R.u - W_L.u) * (a_L + a_R);
+        p_star = std::max(1e-9, 0.5 * (W_L.p + W_R.p) + 0.5 * g);
+        break;
+    }
+    case ApproximationType::ACOUSTIC: {
+        // Р°РєСѓСЃС‚РёС‡РµСЃРєРѕРµ РїСЂРёР±Р»РёР¶РµРЅРёРµ (PVRS)
+        p_star = 0.5 * (W_L.p + W_R.p) - 0.125 * (W_R.u - W_L.u) * (W_L.rho + W_R.rho) * (a_L + a_R);
+        break;
+    }
+    case ApproximationType::AVERAGE: {
+        // СЃСЂРµРґРЅРµРµ Р°СЂРёС„РјРµС‚РёС‡РµСЃРєРѕРµ
+        p_star = 0.5 * (W_L.p + W_R.p);
+        break;
+    }
+    default:
+        throw std::runtime_error("Unknown approximation type in Riemann solver");
+    }
 
-            p_star = std::pow(numerator / denominator, 2.0 * gamma / (gamma - 1.0));
-            break;
-        }
-
-        case ApproximationType::SHOCK: {
-            // Приближение двух ударных волн
-            const double A_L = 2.0 / ((gamma + 1.0) * W_L.rho);
-            const double B_L = (gamma - 1.0) / (gamma + 1.0) * W_L.p;
-            const double A_R = 2.0 / ((gamma + 1.0) * W_R.rho);
-            const double B_R = (gamma - 1.0) / (gamma + 1.0) * W_R.p;
-
-            const double g = (A_L / (A_L + A_R)) * (W_R.p - W_L.p)
-                + (A_R / (A_L + A_R)) * (W_R.u - W_L.u) * (a_L + a_R);
-            p_star = std::max(1e-9, 0.5 * (W_L.p + W_R.p) + 0.5 * g);
-            break;
-        }
-
-        case ApproximationType::ACOUSTIC: {
-            // Акустическое приближение
-            p_star = 0.5 * (W_L.p + W_R.p)
-                - 0.125 * (W_R.u - W_L.u) * (W_L.rho + W_R.rho) * (a_L + a_R);
-            break;
-        }
-
-        case ApproximationType::AVERAGE: {
-            // Среднее арифметическое
-            p_star = 0.5 * (W_L.p + W_R.p);
-            break;
-        }
-
-        default:
-            throw std::runtime_error("Unknown approximation type in Riemann solver");
-        }
-
-    // защита от отрицательных давлений
+    // Р·Р°С‰РёС‚Р° РѕС‚ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅС‹С… РґР°РІР»РµРЅРёР№
     p_star = std::max(1e-9, p_star);
 
     for (int i = 0; i < MAX_ITERATIONS; ++i) {
@@ -190,6 +99,7 @@ static State solve_exact_riemann_problem(const State& W_L, const State& W_R, con
         const double F = f_L + f_R + (W_R.u - W_L.u);
         const double F_prime = f_prime_L + f_prime_R;
         const double p_new = p_star - F / F_prime;
+
         if (std::abs(p_new - p_star) / (0.5 * (p_new + p_star)) < GUESSP_TOLERANCE) {
             break;
         }
@@ -203,23 +113,23 @@ static State solve_exact_riemann_problem(const State& W_L, const State& W_R, con
 
 
 
-    // отбор решения
+    // РѕС‚Р±РѕСЂ СЂРµС€РµРЅРёСЏ
     State solution_state;
-    if (0.0 <= u_star) { // точка (0,t) находится слева от контактного разрыва 
-        if (p_star <= W_L.p) { // левая волна - РАЗРЕЖЕНИЕ
-            const double S_HL = W_L.u - a_L; // скорость головы волны разрежения
-            if (0.0 <= S_HL) { // точка находится в невозмущенной области слева
+    if (0.0 <= u_star) { // С‚РѕС‡РєР° (0,t) РЅР°С…РѕРґРёС‚СЃСЏ СЃР»РµРІР° РѕС‚ РєРѕРЅС‚Р°РєС‚РЅРѕРіРѕ СЂР°Р·СЂС‹РІР° 
+        if (p_star <= W_L.p) { // Р»РµРІР°СЏ РІРѕР»РЅР° - Р РђР—Р Р•Р–Р•РќРР•
+            const double S_HL = W_L.u - a_L; // СЃРєРѕСЂРѕСЃС‚СЊ РіРѕР»РѕРІС‹ РІРѕР»РЅС‹ СЂР°Р·СЂРµР¶РµРЅРёСЏ
+            if (0.0 <= S_HL) { // С‚РѕС‡РєР° РЅР°С…РѕРґРёС‚СЃСЏ РІ РЅРµРІРѕР·РјСѓС‰РµРЅРЅРѕР№ РѕР±Р»Р°СЃС‚Рё СЃР»РµРІР°
                 solution_state = W_L;
             }
             else {
                 const double a_star_L = a_L * std::pow(p_star / W_L.p, (gamma - 1.0) / (2.0 * gamma));
-                const double S_TL = u_star - a_star_L; // скорость хвоста волны разрежения
-                if (0.0 > S_TL) { // точка находится в "звездной" области
+                const double S_TL = u_star - a_star_L; // СЃРєРѕСЂРѕСЃС‚СЊ С…РІРѕСЃС‚Р° РІРѕР»РЅС‹ СЂР°Р·СЂРµР¶РµРЅРёСЏ
+                if (0.0 > S_TL) { // С‚РѕС‡РєР° РЅР°С…РѕРґРёС‚СЃСЏ РІ "Р·РІРµР·РґРЅРѕР№" РѕР±Р»Р°СЃС‚Рё
                     solution_state.rho = W_L.rho * std::pow(p_star / W_L.p, 1.0 / gamma);
                     solution_state.u = u_star;
                     solution_state.p = p_star;
                 }
-                else { // точка находится ВНУТРИ веера волны разрежения
+                else { // С‚РѕС‡РєР° РЅР°С…РѕРґРёС‚СЃСЏ Р’РќРЈРўР Р РІРµРµСЂР° РІРѕР»РЅС‹ СЂР°Р·СЂРµР¶РµРЅРёСЏ
                     const double C = 2.0 / (gamma + 1.0);
                     const double u_fan = C * (a_L + (gamma - 1.0) / 2.0 * W_L.u);
                     const double a_fan = C * (a_L + (gamma - 1.0) / 2.0 * W_L.u);
@@ -229,33 +139,33 @@ static State solve_exact_riemann_problem(const State& W_L, const State& W_R, con
                 }
             }
         }
-        else { // левая волна - УДАРНАЯ
+        else { // Р»РµРІР°СЏ РІРѕР»РЅР° - РЈР”РђР РќРђРЇ
             const double S_L = W_L.u - a_L * std::sqrt((gamma + 1.0) / (2.0 * gamma) * (p_star / W_L.p) + (gamma - 1.0) / (2.0 * gamma));
-            if (0.0 <= S_L) { // точка перед ударной волной
+            if (0.0 <= S_L) { // С‚РѕС‡РєР° РїРµСЂРµРґ СѓРґР°СЂРЅРѕР№ РІРѕР»РЅРѕР№
                 solution_state = W_L;
             }
-            else { // точка за ударной волной
+            else { // С‚РѕС‡РєР° Р·Р° СѓРґР°СЂРЅРѕР№ РІРѕР»РЅРѕР№
                 solution_state.rho = W_L.rho * (p_star / W_L.p + (gamma - 1.0) / (gamma + 1.0)) / ((gamma - 1.0) / (gamma + 1.0) * p_star / W_L.p + 1.0);
                 solution_state.u = u_star;
                 solution_state.p = p_star;
             }
         }
     }
-    else { // точка (0,t) находится справа от контактного разрыва
-        if (p_star <= W_R.p) { // правая волна - РАЗРЕЖЕНИЕ
-            const double S_HR = W_R.u + a_R; // скорость "головы"
-            if (0.0 >= S_HR) { // точка в невозмущенной области справа
+    else { // С‚РѕС‡РєР° (0,t) РЅР°С…РѕРґРёС‚СЃСЏ СЃРїСЂР°РІР° РѕС‚ РєРѕРЅС‚Р°РєС‚РЅРѕРіРѕ СЂР°Р·СЂС‹РІР°
+        if (p_star <= W_R.p) { // РїСЂР°РІР°СЏ РІРѕР»РЅР° - Р РђР—Р Р•Р–Р•РќРР•
+            const double S_HR = W_R.u + a_R; // СЃРєРѕСЂРѕСЃС‚СЊ "РіРѕР»РѕРІС‹"
+            if (0.0 >= S_HR) { // С‚РѕС‡РєР° РІ РЅРµРІРѕР·РјСѓС‰РµРЅРЅРѕР№ РѕР±Р»Р°СЃС‚Рё СЃРїСЂР°РІР°
                 solution_state = W_R;
             }
             else {
                 const double a_star_R = a_R * std::pow(p_star / W_R.p, (gamma - 1.0) / (2.0 * gamma));
-                const double S_TR = u_star + a_star_R; // скорость "хвоста"
-                if (0.0 < S_TR) { // точка в "звездной" области
+                const double S_TR = u_star + a_star_R; // СЃРєРѕСЂРѕСЃС‚СЊ "С…РІРѕСЃС‚Р°"
+                if (0.0 < S_TR) { // С‚РѕС‡РєР° РІ "Р·РІРµР·РґРЅРѕР№" РѕР±Р»Р°СЃС‚Рё
                     solution_state.rho = W_R.rho * std::pow(p_star / W_R.p, 1.0 / gamma);
                     solution_state.u = u_star;
                     solution_state.p = p_star;
                 }
-                else { // точка ВНУТРИ веера волны разрежения
+                else { // С‚РѕС‡РєР° Р’РќРЈРўР Р РІРµРµСЂР° РІРѕР»РЅС‹ СЂР°Р·СЂРµР¶РµРЅРёСЏ
                     const double C1 = 2.0 / (gamma + 1.0);
                     const double C2 = (gamma - 1.0) / (gamma + 1.0);
                     const double u_fan = C1 * (-a_R + (gamma - 1.0) / 2.0 * W_R.u);
@@ -266,14 +176,14 @@ static State solve_exact_riemann_problem(const State& W_L, const State& W_R, con
                 }
             }
         }
-        else { // правая волна - УДАРНАЯ
+        else { // РїСЂР°РІР°СЏ РІРѕР»РЅР° - РЈР”РђР РќРђРЇ
             const double S_R = W_R.u + a_R * std::sqrt((gamma + 1.0) / (2.0 * gamma) * (p_star / W_R.p) + (gamma - 1.0) / (2.0 * gamma));
-            if (0.0 >= S_R) { // точка за ударной волной
+            if (0.0 >= S_R) { // С‚РѕС‡РєР° Р·Р° СѓРґР°СЂРЅРѕР№ РІРѕР»РЅРѕР№
                 solution_state.rho = W_R.rho * (p_star / W_R.p + (gamma - 1.0) / (gamma + 1.0)) / ((gamma - 1.0) / (gamma + 1.0) * p_star / W_R.p + 1.0);
                 solution_state.u = u_star;
                 solution_state.p = p_star;
             }
-            else { // точка перед ударной волной
+            else { // С‚РѕС‡РєР° РїРµСЂРµРґ СѓРґР°СЂРЅРѕР№ РІРѕР»РЅРѕР№
                 solution_state = W_R;
             }
         }
@@ -283,37 +193,72 @@ static State solve_exact_riemann_problem(const State& W_L, const State& W_R, con
 }
 
 
-// функция, выполняющая один шаг по времени методом Годунова
+// Р°РєСѓСЃС‚РёС‡РµСЃРєРёР№ СЂРµС€Р°С‚РµР»СЊ Р РёРјР°РЅР° 
+// РѕРЅ РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚ РёС‚РµСЂР°С†РёРё, Р° СЃСЂР°Р·Сѓ РґР°РµС‚ РїСЂРёР±Р»РёР¶РµРЅРЅРѕРµ СЂРµС€РµРЅРёРµ
+static State solve_acoustic_riemann_problem(const State& W_L, const State& W_R, const double gamma) {
+    const double a_L = soundSpeed(W_L, gamma);
+    const double a_R = soundSpeed(W_R, gamma);
+
+    // СЃСЂРµРґРЅРёРµ Р·РЅР°С‡РµРЅРёСЏ
+    const double rho_avg = 0.5 * (W_L.rho + W_R.rho);
+    const double a_avg = 0.5 * (a_L + a_R);
+
+    // РґР°РІР»РµРЅРёРµ Рё СЃРєРѕСЂРѕСЃС‚СЊ РІ "Р·РІРµР·РґРЅРѕР№" РѕР±Р»Р°СЃС‚Рё РїРѕ Р°РєСѓСЃС‚РёС‡РµСЃРєРёРј С„РѕСЂРјСѓР»Р°Рј
+    const double p_star = 0.5 * (W_L.p + W_R.p) - 0.5 * (W_R.u - W_L.u) * rho_avg * a_avg;
+    const double u_star = 0.5 * (W_L.u + W_R.u) - 0.5 * (W_R.p - W_L.p) / (rho_avg * a_avg);
+
+    // РѕС‚Р±РѕСЂ СЂРµС€РµРЅРёСЏ РЅР° РіСЂР°РЅРёС†Рµ (x/t = 0)
+    State solution_state;
+    if (0.0 <= u_star) {
+        // РµСЃР»Рё РєРѕРЅС‚Р°РєС‚РЅС‹Р№ СЂР°Р·СЂС‹РІ СѓС€РµР» РІРїСЂР°РІРѕ, РЅР° РіСЂР°РЅРёС†Рµ СЃРѕСЃС‚РѕСЏРЅРёРµ, РїСЂРёС€РµРґС€РµРµ СЃР»РµРІР°
+        if (0.0 <= (W_L.u - a_L)) {
+            solution_state = W_L;
+        }
+        else {
+            solution_state.rho = W_L.rho + (p_star - W_L.p) / (a_L * a_L);
+            solution_state.u = u_star;
+            solution_state.p = p_star;
+        }
+    }
+    else {
+        // РµСЃР»Рё РєРѕРЅС‚Р°РєС‚РЅС‹Р№ СЂР°Р·СЂС‹РІ СѓС€РµР» РІР»РµРІРѕ, РЅР° РіСЂР°РЅРёС†Рµ СЃРѕСЃС‚РѕСЏРЅРёРµ, РїСЂРёС€РµРґС€РµРµ СЃРїСЂР°РІР°
+        if (0.0 >= (W_R.u + a_R)) {
+            solution_state = W_R;
+        }
+        else {
+            solution_state.rho = W_R.rho + (p_star - W_R.p) / (a_R * a_R);
+            solution_state.u = u_star;
+            solution_state.p = p_star;
+        }
+    }
+    return solution_state;
+}
+
+
+// С„СѓРЅРєС†РёСЏ, РІС‹РїРѕР»РЅСЏСЋС‰Р°СЏ РѕРґРёРЅ С€Р°Рі РїРѕ РІСЂРµРјРµРЅРё РјРµС‚РѕРґРѕРј Р“РѕРґСѓРЅРѕРІР°
 void godunov_step(Grid& grid, double dt, const Config& cfg) {
     const double dx = grid.dx;
     const double gamma = cfg.phys.gamma;
-    const auto approx_type = cfg.approx_type;
-    // вектор для хранения потоков на границах ячеек.
+
     std::vector<Flux> fluxes(grid.Nx + 1);
 
     for (int i = 0; i <= grid.Nx; ++i) {
-        // определяем состояния слева и справа от границы i
         const State W_L = grid.W[i + grid.num_fict - 1];
         const State W_R = grid.W[i + grid.num_fict];
 
-        // решаем задачу Римана для этой границы
-        const State state_at_interface = solve_exact_riemann_problem(W_L, W_R, gamma, approx_type);
+        State state_at_interface;
+
+        state_at_interface = solve_exact_riemann_problem(W_L, W_R, gamma, cfg.approx_type);
 
 
-        // вычисляем поток по найденному состоянию
         fluxes[i] = physToFlux(state_at_interface, gamma);
     }
 
-    // цикл по ячейкам для обновления решения
     for (int i = 0; i < grid.Nx; ++i) {
-        
-        const int cell_idx = i + grid.num_fict; // индекс реальной ячейки в общем массиве
-
-        
+        const int cell_idx = i + grid.num_fict;
         const Flux& F_left = fluxes[i];
         const Flux& F_right = fluxes[i + 1];
 
-        // конечно-объемная формула обновления
         grid.U[cell_idx].rho -= (dt / dx) * (F_right.rho_f - F_left.rho_f);
         grid.U[cell_idx].rhou -= (dt / dx) * (F_right.rhou_f - F_left.rhou_f);
         grid.U[cell_idx].E -= (dt / dx) * (F_right.E_f - F_left.E_f);
