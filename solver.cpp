@@ -1,7 +1,8 @@
-﻿#include "solver.h" 
+#include "solver.h" 
 #include "grid.h"   
 #include "boundary_conditions.h"
 #include "godunov.h" 
+#include "acoustic.h"
 #include "euler_utils.h"
 
 #include <iostream>
@@ -16,7 +17,7 @@
 static int get_required_fict_cells(NumericalMethod method) {
     switch (method) {
     case NumericalMethod::GODUNOV:
-        return 1;
+        return 1; 
     case NumericalMethod::ACOUSTIC:
         return 1;
     default:
@@ -46,32 +47,6 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
     
     initialize_grid(grid, cfg);
 
-    if (cfg.method == NumericalMethod::ACOUSTIC) {
-        acoustic_solver(grid, cfg);
-
-        // Сохранение результата напрямую из grid.W
-        std::ofstream file(outputFilename);
-        if (!file.is_open()) {
-            throw std::runtime_error("Cannot open output file: " + outputFilename);
-        }
-
-        file << "x,rho,u,p,e\n";
-        for (int i = num_fict; i < grid.Nx + num_fict; ++i) {
-            const State& W = grid.W[i];
-            double internal_energy = (W.rho > 1e-9)
-                ? W.p / (W.rho * (cfg.phys.gamma - 1.0))
-                : 0.0;
-            file << grid.x_centers[i] << ","
-                << W.rho << ","
-                << W.u << ","
-                << W.p << ","
-                << internal_energy << "\n";
-        }
-        file.close();
-        std::cout << "Acoustic solution finished. Result saved to: " << outputFilename << std::endl;
-        return;
-    }
-
     double t = 0.0;
     int step = 0;
     while (t < cfg.grid.t_final) {
@@ -89,14 +64,14 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
             dt = cfg.grid.t_final - t;
         }
 
-        // численный метод
         if (cfg.method == NumericalMethod::GODUNOV) {
-            godunov_step(grid, dt, cfg); 
+            godunov_step(grid, dt, cfg);
         }
-        
+        else if (cfg.method == NumericalMethod::ACOUSTIC) {
+            acoustic_step(grid, dt, cfg);
+        }
         else {
-            //throw std::runtime_error("Unknown or not implemented numerical method selected!");
-            break;
+            throw std::runtime_error("Unknown or not implemented numerical method selected!");
         }
 
         
