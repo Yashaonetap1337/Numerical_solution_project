@@ -1,4 +1,4 @@
-﻿#include "types.h" 
+#include "types.h" 
 
 #include <fstream>
 #include <sstream>
@@ -40,9 +40,10 @@ static NumericalMethod parseMethod(const std::string& s) {
 
     if (lower == "godunov") return NumericalMethod::GODUNOV;
     if (lower == "acoustic") return NumericalMethod::ACOUSTIC;
+    if (lower == "kolgan") return NumericalMethod::KOLGAN;
+
     throw std::runtime_error("Unknown numerical method: " + s);
 }
-
 
 static ApproximationType parseApproxType(const std::string& s) {
     std::string lower = s;
