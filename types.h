@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <vector>
 #include <string>
@@ -60,17 +60,21 @@ struct Grid {
     }
 };
 
+
+
+enum class NumericalMethod { 
+    GODUNOV, 
+    ACOUSTIC,
+    KOLGAN
+};
+
+
 enum class ApproximationType {
     RAREFACTION,
     SHOCK,
     ACOUSTIC,
     AVERAGE
 };
-
-enum class NumericalMethod { 
-    GODUNOV, ACOUSTIC
-};
-
 
 struct Config {
     PhysicalParameters phys;
