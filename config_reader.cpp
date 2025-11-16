@@ -41,7 +41,7 @@ static NumericalMethod parseMethod(const std::string& s) {
     if (lower == "godunov") return NumericalMethod::GODUNOV;
     if (lower == "acoustic") return NumericalMethod::ACOUSTIC;
     if (lower == "kolgan") return NumericalMethod::KOLGAN;
-
+    if (lower == "rodionov") return NumericalMethod::RODIONOV;
     throw std::runtime_error("Unknown numerical method: " + s);
 }
 
@@ -55,6 +55,16 @@ static ApproximationType parseApproxType(const std::string& s) {
     if (lower == "acoustic")    return ApproximationType::ACOUSTIC;
     if (lower == "average")     return ApproximationType::AVERAGE;
     throw std::runtime_error("Unknown approximation type: " + s);
+}
+
+static TypesOfVarForReconstruction parseVarType(const std::string& s) {
+    std::string lower = s;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+
+    if (lower == "nonconservative") return TypesOfVarForReconstruction::NONCONSERVATIVE;
+    if (lower == "conservative")       return TypesOfVarForReconstruction::CONSERVATIVE;
+    throw std::runtime_error("Unknown type for reconstruction: " + s);
 }
 
 // функция для чтения конфигурационного файла
@@ -126,6 +136,9 @@ Config readConfig(const std::string& filename) {
                 }
                 else if (key == "approximation") {
                     cfg.approx_type = parseApproxType(valueStr);
+                }
+                else if (key == "reconstruction") {
+                    cfg.var_type = parseVarType(valueStr);
                 }
                 else {
                     throw std::runtime_error("Unknown method parameter: " + key);

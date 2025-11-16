@@ -4,6 +4,7 @@
 #include "godunov.h" 
 #include "acoustic.h"
 #include "kolgan.h"
+#include "rodionov.h"
 #include "euler_utils.h"
 #include "riemann_solver.h"
 
@@ -98,6 +99,8 @@ static int get_required_fict_cells(NumericalMethod method) {
         return 1;
     case NumericalMethod::KOLGAN:
         return 2;
+    case NumericalMethod::RODIONOV:
+        return 2;
     default:
         throw std::runtime_error("The number of fictitious cells is not defined for the selected method!");
     }
@@ -162,6 +165,9 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
         }
         else if (cfg.method == NumericalMethod::KOLGAN) { 
             kolgan_step(grid, dt, cfg, fluxes);
+        }
+        else if (cfg.method == NumericalMethod::RODIONOV) {
+            rodionov_step(grid, dt, cfg, fluxes);
         }
         else {
             throw std::runtime_error("Unknown or not implemented numerical method selected!");

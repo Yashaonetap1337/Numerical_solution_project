@@ -65,7 +65,8 @@ struct Grid {
 enum class NumericalMethod { 
     GODUNOV, 
     ACOUSTIC,
-    KOLGAN
+    KOLGAN,
+    RODIONOV
 };
 
 
@@ -76,11 +77,17 @@ enum class ApproximationType {
     AVERAGE
 };
 
+enum class TypesOfVarForReconstruction {
+    CONSERVATIVE,
+    NONCONSERVATIVE
+};
+
 struct Config {
     PhysicalParameters phys;
     GridParameters grid;
     NumericalMethod method;
     ApproximationType approx_type;
+    TypesOfVarForReconstruction var_type;
 };
 
 
