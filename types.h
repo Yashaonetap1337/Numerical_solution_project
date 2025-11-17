@@ -60,8 +60,27 @@ struct Grid {
     }
 };
 
+enum class SnapshotOutputType {
+    NONE,
+    BY_STEPS,
+    BY_TIME
+};
+
+enum class BoundaryType {
+    WALL,
+    FREE,
+    PERIODIC
+};
+
+struct OutputParams {
+    SnapshotOutputType snapshot_output = SnapshotOutputType::NONE;
+    int snapshot_interval_steps = 100;
+    double snapshot_interval_time = 0.02;
+    std::string snapshots_directory = "snapshots";
+};
 
 
+// Реализуемые методы
 enum class NumericalMethod { 
     GODUNOV, 
     ACOUSTIC,
@@ -69,7 +88,7 @@ enum class NumericalMethod {
     RODIONOV
 };
 
-
+// Тип аппроксимации начального давления
 enum class ApproximationType {
     RAREFACTION,
     SHOCK,
@@ -77,18 +96,25 @@ enum class ApproximationType {
     AVERAGE
 };
 
+
+// Тип используемых переменных
 enum class TypesOfVarForReconstruction {
     CONSERVATIVE,
     NONCONSERVATIVE
 };
 
+// Лол
 struct Config {
     PhysicalParameters phys;
     GridParameters grid;
     NumericalMethod method;
     ApproximationType approx_type;
     TypesOfVarForReconstruction var_type;
+    OutputParams output;
+    BoundaryType left_boundary;
+    BoundaryType right_boundary;
 };
+
 
 
 Config readConfig(const std::string& filename);

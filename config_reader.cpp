@@ -67,6 +67,17 @@ static TypesOfVarForReconstruction parseVarType(const std::string& s) {
     throw std::runtime_error("Unknown type for reconstruction: " + s);
 }
 
+static SnapshotOutputType parseSnapshotOutputType(const std::string& s) {
+    std::string lower = s;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+        [](unsigned char c) { return std::tolower(c); });
+
+    if (lower == "none") return SnapshotOutputType::NONE;
+    if (lower == "by_steps") return SnapshotOutputType::BY_STEPS;
+    if (lower == "by_time") return SnapshotOutputType::BY_TIME;
+    throw std::runtime_error("Unknown snapshot output type: " + s);
+}
+
 // функция для чтения конфигурационного файла
 Config readConfig(const std::string& filename) {
     Config cfg;
@@ -142,6 +153,36 @@ Config readConfig(const std::string& filename) {
                 }
                 else {
                     throw std::runtime_error("Unknown method parameter: " + key);
+                }
+            }
+            // секция чтения параметров для хранения данных для скринов
+            else if (currentSection == "Output") {
+                if (key == "snapshot_output") {
+                    cfg.output.snapshot_output = parseSnapshotOutputType(valueStr);
+                }
+                else if (key == "snapshot_interval_steps") {
+                    cfg.output.snapshot_interval_steps = std::stoi(valueStr);
+                }
+                else if (key == "snapshot_interval_time") {
+                    cfg.output.snapshot_interval_time = stringToDouble(valueStr);
+                }
+                else if (key == "snapshots_directory") {
+                    cfg.output.snapshots_directory = valueStr;
+                }
+                else throw std::runtime_error("Unknown output parameter: " + key);
+            }
+            else if (currentSection == "BoundaryConditions") {
+                if (key == "left_boundary") {
+                    if (valueStr == "WALL") cfg.left_boundary = BoundaryType::WALL;
+                    else if (valueStr == "FREE") cfg.left_boundary = BoundaryType::FREE;
+                    else if (valueStr == "PERIODIC") cfg.left_boundary = BoundaryType::PERIODIC;
+                    else throw std::runtime_error("Unknown left boundary type: " + valueStr);
+                }
+                else if (key == "right_boundary") {
+                    if (valueStr == "WALL") cfg.right_boundary = BoundaryType::WALL;
+                    else if (valueStr == "FREE") cfg.right_boundary = BoundaryType::FREE;
+                    else if (valueStr == "PERIODIC") cfg.right_boundary = BoundaryType::PERIODIC;
+                    else throw std::runtime_error("Unknown right boundary type: " + valueStr);
                 }
             }
             else if (!currentSection.empty()) {

@@ -1,6 +1,7 @@
 #include "euler_utils.h"
 
 #include <cmath>
+#include <iostream>
 
 Conserved physToCons(const State& W, double gamma) {
     Conserved U;
@@ -10,12 +11,14 @@ Conserved physToCons(const State& W, double gamma) {
     return U;
 }
 
-State consToPhys(const Conserved& U, double gamma) {   
+State consToPhys(const Conserved& U, double gamma) {
     State W;
     W.rho = U.rho;
     W.u = U.rhou / U.rho;
-    // давление не может быть отрицательным
-    W.p = std::max(1e-9, (gamma - 1.0) * (U.E - 0.5 * W.u * U.rhou));
+
+    double pressure = (gamma - 1.0) * (U.E - 0.5 * W.u * U.rhou);
+
+    W.p = std::max(1e-9, pressure);
     return W;
 }
 

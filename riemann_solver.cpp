@@ -19,7 +19,7 @@ constexpr double GUESSP_TOLERANCE = 1e-6;
 static void evaluate_pressure_functions(const double p_star, const State& W_k, const double gamma,
     double& f, double& f_prime)
 {
-    const double a_k = soundSpeed(W_k, gamma); // скорость звука в области k
+    const double a_k = soundSpeed(W_k, gamma);
 
     if (p_star > W_k.p) { // УДАРНАЯ ВОЛНА 
         const double A = 2.0 / ((gamma + 1.0) * W_k.rho);
@@ -28,21 +28,21 @@ static void evaluate_pressure_functions(const double p_star, const State& W_k, c
 
         f = (p_star - W_k.p) * p_sqrt;
         f_prime = (1.0 - (p_star - W_k.p) / (2.0 * (B + p_star))) * p_sqrt;
+
     }
-    else { //  ВОЛНА РАЗРЕЖЕНИЯ 
+    else { // ВОЛНА РАЗРЕЖЕНИЯ 
         const double p_ratio = p_star / W_k.p;
         const double p_pow = std::pow(p_ratio, (gamma - 1.0) / (2.0 * gamma));
 
         f = (2.0 * a_k / (gamma - 1.0)) * (p_pow - 1.0);
         f_prime = (1.0 / (W_k.rho * a_k)) * p_pow / p_ratio;
     }
-}
 
+}
 
 // решатель Римана
 State solve_general_riemann_problem(const State& W_L, const State& W_R, double xi, const Config& cfg, const ApproximationType approx_type) {
     const double gamma = cfg.phys.gamma;
-    
 
     // проверка на вакуум (если плотность или давление нулевые)
     if (W_L.rho <= 0 || W_L.p <= 0 || W_R.rho <= 0 || W_R.p <= 0) {
@@ -50,7 +50,7 @@ State solve_general_riemann_problem(const State& W_L, const State& W_R, double x
     }
 
 
-
+    double S_L = 0.0, S_R = 0.0;
     double p_star;
     double u_star;
     const double a_L = soundSpeed(W_L, gamma);
@@ -108,12 +108,38 @@ State solve_general_riemann_problem(const State& W_L, const State& W_R, double x
 
         const double F = f_L + f_R + (W_R.u - W_L.u);
         const double F_prime = f_prime_L + f_prime_R;
+
         const double p_new = p_star - F / F_prime;
 
-        if (std::abs(p_new - p_star) / (0.5 * (p_new + p_star)) < GUESSP_TOLERANCE) {
+        // ИСПРАВЛЕНИЕ: правильная проверка сходимости
+        double relative_change = 0.0;
+        if (p_new > 0 && p_star > 0) {
+            relative_change = std::abs(p_new - p_star) / (0.5 * (p_new + p_star));
+        }
+        else {
+            // Если давления отрицательные, используем абсолютное изменение
+            relative_change = std::abs(p_new - p_star);
+        }
+
+        if (relative_change < GUESSP_TOLERANCE) {
+            p_star = std::max(1e-9, p_new); // защита от отрицательных
             break;
         }
-        p_star = std::max(1e-9, p_new);
+
+        // ЗАЩИТА: не допускаем отрицательных давлений
+        if (p_new <= 0) {
+            // Вместо установки минимального значения, используем метод половинного деления
+            p_star = 0.5 * p_star; // уменьшаем текущее значение
+        }
+        else {
+            p_star = p_new;
+        }
+
+        // Дополнительная защита: если давление стало слишком маленьким
+        if (p_star < 1e-9) {
+            p_star = 1e-9;
+            break;
+        }
     }
 
     double f_L, f_prime_L, f_R, f_prime_R;

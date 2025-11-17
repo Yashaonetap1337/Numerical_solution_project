@@ -1,6 +1,7 @@
 ﻿#include "types.h" 
 #include "solver.h"
 #include "test_cases.h"
+#include "analytical.h"
 
 #include <iostream>
 #include <locale>
@@ -17,13 +18,12 @@ int main() {
         std::cout << "x_min=" << cfg.grid.x_min << " x_max=" << cfg.grid.x_max << std::endl;
         std::cout << "x_diaphragm=" << cfg.grid.x_diaphragm << std::endl;
         std::cout << "Nx=" << cfg.grid.Nx << std::endl;
+
         // запуск численной симуляции 
         run_simulation(cfg, "numerical_solution.csv");
 
-        if (cfg.phys.test_case > 0) {
-            std::cout << "Saving analytical solution for test case #" << cfg.phys.test_case << std::endl;
-            save_analytical_solution(cfg.phys.test_case, "analytical_solution.csv");
-        }
+        // Теперь аналитические снимки создаются автоматически в run_simulation
+        std::cout << "All analytical snapshots were generated during simulation." << std::endl;
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

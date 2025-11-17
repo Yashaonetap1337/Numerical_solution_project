@@ -7,6 +7,7 @@
 #include "rodionov.h"
 #include "euler_utils.h"
 #include "riemann_solver.h"
+#include "analytical.h"
 
 #include <iostream>
 #include <fstream>
@@ -14,80 +15,8 @@
 #include <cmath>
 #include <algorithm>
 #include <stdexcept>
-
-
-
-
-
-// функция для генерации аналитического снэпшота для конкретного времени t
-void generate_analytical_snapshot(const Config& cfg, double t, const std::string& outputFilename) {
-    std::ofstream file(outputFilename);
-    if (!file.is_open()) return; // просто пропускаем, если не удалось
-    file << "x,rho,u,p,e\n";
-
-    const int points = 2000;
-    const double dx = (cfg.grid.x_max - cfg.grid.x_min) / points;
-
-    for (int i = 0; i <= points; ++i) {
-        const double x = cfg.grid.x_min + i * dx;
-        const double xi = (t > 1e-9) ? (x - cfg.grid.x_diaphragm) / t : 0.0;
-        State W = solve_general_riemann_problem(cfg.phys.left, cfg.phys.right, xi, cfg, cfg.approx_type);
-        double e = (W.rho > 1e-9) ? W.p / (W.rho * (cfg.phys.gamma - 1.0)) : 0.0;
-        file << x << "," << W.rho << "," << W.u << "," << W.p << "," << e << "\n";
-    }
-    file.close();
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//void save_snapshot(const Grid& grid, const std::vector<Flux>& fluxes, int step, const Config& cfg) {
-//    std::string filename = "snapshot_step" + std::to_string(step) + ".csv";
-//    std::ofstream file(filename);
-//
-//    if (!file.is_open()) {
-//        std::cerr << "Warning: Could not open snapshot file " << filename << std::endl;
-//        return;
-//    }
-//
-//    file << "cell_idx,x," // Геометрия
-//        << "rho,u,p,"       // Физические переменные (W)
-//        << "cons_rho,cons_rhou,cons_E," // Консервативные переменные (U)
-//        << "flux_rho,flux_rhou,flux_E\n"; // Потоки НА ЛЕВОЙ ГРАНИЦЕ ячейки
-//
-//    for (int i = 0; i < grid.Nx; ++i) {
-//        const int cell_idx = i + grid.num_fict; // Глобальный индекс ячейки
-//
-//        const State& W = grid.W[cell_idx];
-//        const Conserved& U = grid.U[cell_idx];
-//        const Flux& F_left = fluxes[i]; // Поток на левой границе ячейки i
-//
-//        file << i << "," << grid.x_centers[cell_idx] << ","
-//            << W.rho << "," << W.u << "," << W.p << ","
-//            << U.rho << "," << U.rhou << "," << U.E << ","
-//            << F_left.rho_f << "," << F_left.rhou_f << "," << F_left.E_f << "\n";
-//    }
-//
-//    
-//    const Flux& F_last = fluxes[grid.Nx];
-//    file << grid.Nx << ",,," // Нет ячейки, только граница
-//        << ",,,,"
-//        << F_last.rho_f << "," << F_last.rhou_f << "," << F_last.E_f << "\n";
-//
-//    file.close();
-//}
-
-
+#include <filesystem>
+#include <sys/stat.h> 
 
 
 // функция, которая определяет необходимое количество фиктивных ячеек для каждого метода
@@ -120,29 +49,66 @@ static double calculate_timestep(const Grid& grid, const Config& cfg) {
 
 
 
+void save_snapshot(const Grid& grid, const Config& cfg, int step, double t, const std::string& filename) {
+    // Создаем директорию, если она не существует
+    std::filesystem::create_directories(cfg.output.snapshots_directory);
+
+    std::string full_filename = cfg.output.snapshots_directory + "/" + filename;
+    std::ofstream file(full_filename);
+
+    if (!file.is_open()) {
+        std::cerr << "Warning: Could not open snapshot file " << full_filename << std::endl;
+        return;
+    }
+
+    file << "x,rho,u,p,e,step,time\n";
+    for (int i = grid.num_fict; i < grid.Nx + grid.num_fict; ++i) {
+        State W = consToPhys(grid.U[i], cfg.phys.gamma);
+        double e = (W.rho > 1e-9) ? W.p / (W.rho * (cfg.phys.gamma - 1.0)) : 0.0;
+        file << grid.x_centers[i] << "," << W.rho << "," << W.u << "," << W.p << "," << e
+            << "," << step << "," << t << "\n";
+    }
+    file.close();
+
+    std::cout << "Numerical snapshot saved: " << full_filename << " (step=" << step << ", t=" << t << ")" << std::endl;
+}
+
 void run_simulation(const Config& cfg, const std::string& outputFilename) {
-    
+
     int num_fict = get_required_fict_cells(cfg.method);
     Grid grid(cfg.grid.Nx, num_fict);
 
-    
+
     initialize_grid(grid, cfg);
 
     double t = 0.0;
     int step = 0;
 
-    const int snapshot_interval = 200; // сохранять каждые 200 шагов
-    int snapshot_counter = 0;
+    // Переменные для управления снимками
+    int next_snapshot_step = 0;
+    double next_snapshot_time = 0.0;
 
-    //// Сохраняем начальное состояние (t=0)
-    //std::string num_fname_t0 = "results/" + outputFilename_base + "_t0.csv";
-    //// ... (здесь можно добавить код для сохранения начального численного состояния)
-    //std::string an_fname_t0 = "results/analytical_" + outputFilename_base + "_t0.csv";
-    //generate_analytical_snapshot(cfg, t, an_fname_t0);
-    
+    // Сохраняем начальное состояние
+    if (cfg.output.snapshot_output != SnapshotOutputType::NONE) {
+        std::string init_filename = "initial_state.csv";
+        save_snapshot(grid, cfg, 0, 0.0, init_filename);
+
+        // Сохраняем аналитическое решение для начального момента
+        std::string analytical_init_filename = "analytical_initial_state.csv";
+        generate_analytical_snapshot(cfg, 0.0, cfg.output.snapshots_directory + "/" + analytical_init_filename);
+
+        // Инициализируем следующие моменты для снимков
+        if (cfg.output.snapshot_output == SnapshotOutputType::BY_STEPS) {
+            next_snapshot_step = cfg.output.snapshot_interval_steps;
+        }
+        else if (cfg.output.snapshot_output == SnapshotOutputType::BY_TIME) {
+            next_snapshot_time = cfg.output.snapshot_interval_time;
+        }
+    }
+
     while (t < cfg.grid.t_final) {
-        
-        apply_boundary_conditions(grid);
+
+        apply_boundary_conditions(grid, cfg);
 
         // пересчитываем физические переменные из консервативных 
         for (int i = 0; i < grid.Nx + 2 * num_fict; ++i) {
@@ -158,12 +124,12 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
         std::vector<Flux> fluxes(grid.Nx + 1);
 
         if (cfg.method == NumericalMethod::GODUNOV) {
-            godunov_step(grid, dt, cfg, fluxes); 
+            godunov_step(grid, dt, cfg, fluxes);
         }
         else if (cfg.method == NumericalMethod::ACOUSTIC) {
             acoustic_step(grid, dt, cfg);
         }
-        else if (cfg.method == NumericalMethod::KOLGAN) { 
+        else if (cfg.method == NumericalMethod::KOLGAN) {
             kolgan_step(grid, dt, cfg, fluxes);
         }
         else if (cfg.method == NumericalMethod::RODIONOV) {
@@ -173,109 +139,75 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
             throw std::runtime_error("Unknown or not implemented numerical method selected!");
         }
 
-        
+
         t += dt;
         step++;
 
+        // Проверяем, нужно ли сохранять снимок
+        bool should_save_snapshot = false;
+        std::string snapshot_filename;
 
-        //if (step % snapshot_interval == 0) {
-        //    snapshot_counter++;
-        //    std::cout << "Step: " << step << ", Time: " << t << "/" << cfg.grid.t_final
-        //        << " (Saving snapshot #" << snapshot_counter << ")" << std::endl;
+        if (cfg.output.snapshot_output == SnapshotOutputType::BY_STEPS && step >= next_snapshot_step) {
+            should_save_snapshot = true;
+            snapshot_filename = "snapshot_step_" + std::to_string(step) + ".csv";
+            next_snapshot_step += cfg.output.snapshot_interval_steps;
+        }
+        else if (cfg.output.snapshot_output == SnapshotOutputType::BY_TIME && t >= next_snapshot_time) {
+            should_save_snapshot = true;
+            // Форматируем время для имени файла
+            std::string time_str = std::to_string(t);
+            size_t dot_pos = time_str.find('.');
+            if (dot_pos != std::string::npos) {
+                time_str = time_str.substr(0, dot_pos + 3); // берем 2 знака после запятой
+            }
+            std::replace(time_str.begin(), time_str.end(), '.', '_');
+            snapshot_filename = "snapshot_time_" + time_str + ".csv";
+            next_snapshot_time += cfg.output.snapshot_interval_time;
+        }
 
-        //    // Сохраняем численный снэпшот
-        //    std::string num_fname = "results/" + outputFilename_base + "_snap" + std::to_string(snapshot_counter) + ".csv";
-        //    std::ofstream num_file(num_fname);
-        //    num_file << "x,rho,u,p,e\n";
-        //    for (int i = grid.num_fict; i < grid.Nx + grid.num_fict; ++i) {
-        //        State W = consToPhys(grid.U[i], cfg.phys.gamma);
-        //        double e = (W.rho > 1e-9) ? W.p / (W.rho * (cfg.phys.gamma - 1.0)) : 0.0;
-        //        num_file << grid.x_centers[i] << "," << W.rho << "," << W.u << "," << W.p << "," << e << "\n";
-        //    }
-        //    num_file.close();
+        if (should_save_snapshot) {
+            // Сохраняем численный снимок
+            save_snapshot(grid, cfg, step, t, snapshot_filename);
 
-        //    // ГЕНЕРИРУЕМ АНАЛИТИЧЕСКИЙ СНЭПШОТ ДЛЯ ЭТОГО ЖЕ МОМЕНТА ВРЕМЕНИ
-        //    std::string an_fname = "results/analytical_" + outputFilename_base + "_snap" + std::to_string(snapshot_counter) + ".csv";
-        //    generate_analytical_snapshot(cfg, t, an_fname);
-        //}
-
-
-
-
-        //if (step % snapshot_interval == 0) {
-        //    std::cout << "Step: " << step << ", Time: " << t << "/" << cfg.grid.t_final
-        //        << " (Saving snapshot...)" << std::endl;
-        //    save_snapshot(grid, fluxes, step, cfg);
-        //}
-        //else if (step % 1 == 0) { // Для остальных шагов - старый вывод
-        //    std::cout << "Step: " << step << ", Time: " << t << "/" << cfg.grid.t_final << std::endl;
-        //}
-
-
-
-
-        
-        //// отладочная информация 
-        //if (step % 100 == 0) {
-
-        //    double min_pressure = 1e30;
-        //    double min_density = 1e30;
-
-        //    double x_at_min_p = 0.0;
-        //    double x_at_min_rho = 0.0;
-
-        //    // ищем минимальные p и rho
-        //    for (int i = grid.num_fict; i < grid.Nx + grid.num_fict; ++i) {
-        //        State current_W = consToPhys(grid.U[i], cfg.phys.gamma);
-
-        //        
-        //        if (current_W.p < min_pressure) {
-        //            min_pressure = current_W.p;
-        //            x_at_min_p = grid.x_centers[i]; 
-        //        }
-
-        //        
-        //        if (current_W.rho < min_density) {
-        //            min_density = current_W.rho;
-        //            x_at_min_rho = grid.x_centers[i];
-        //        }
-        //    }
-
-        //    
-        //    std::cout << "Step: " << step
-        //        << ", Time: " << t << "/" << cfg.grid.t_final
-        //        << ", Min P: " << min_pressure << " at x=" << x_at_min_p
-        //        << ", Min Rho: " << min_density << " at x=" << x_at_min_rho
-        //        << std::endl;
-        //}
-        
-
-
+            // Сохраняем аналитический снимок для того же времени
+            std::string analytical_filename = "analytical_" + snapshot_filename;
+            generate_analytical_snapshot(cfg, t, cfg.output.snapshots_directory + "/" + analytical_filename);
+        }
 
         if (step % 100 == 0) {
             std::cout << "Step: " << step << ", Time: " << t << "/" << cfg.grid.t_final << std::endl;
         }
     }
 
-    // сохранение результатов
+    // Сохраняем финальное состояние
+    if (cfg.output.snapshot_output != SnapshotOutputType::NONE) {
+        std::string final_filename = "final_state.csv";
+        save_snapshot(grid, cfg, step, t, final_filename);
+
+        // Сохраняем аналитическое решение для финального времени
+        std::string analytical_final_filename = "analytical_final_state.csv";
+        generate_analytical_snapshot(cfg, t, cfg.output.snapshots_directory + "/" + analytical_final_filename);
+    }
+
+    // сохранение основных результатов
     std::ofstream file(outputFilename);
     if (!file.is_open()) throw std::runtime_error("Cannot open output file: " + outputFilename);
 
-    
+
     file << "x,rho,u,p,e\n";
     for (int i = num_fict; i < grid.Nx + num_fict; ++i) {
         State final_W = consToPhys(grid.U[i], cfg.phys.gamma);
 
-        
+
         double internal_energy = 0.0;
-        if (final_W.rho > 1e-9) { 
+        if (final_W.rho > 1e-9) {
             internal_energy = final_W.p / (final_W.rho * (cfg.phys.gamma - 1.0));
         }
 
-        
+
         file << grid.x_centers[i] << "," << final_W.rho << "," << final_W.u << "," << final_W.p << "," << internal_energy << "\n";
     }
 
     file.close();
-     std::cout << "Simulation finished. Result saved to: " << outputFilename << std::endl;
+    std::cout << "Simulation finished. Result saved to: " << outputFilename << std::endl;
 }

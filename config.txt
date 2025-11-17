@@ -22,3 +22,13 @@ CFL = 0.125
 [NumericalMethod]
 method = godunov
 approximation = average
+
+[Output]
+snapshot_output = by_time       
+snapshot_interval_steps = 100    
+snapshot_interval_time = 0.01    
+snapshots_directory = results/snapshots
+
+[BoundaryConditions]
+left_boundary = WALL
+right_boundary = FREE   

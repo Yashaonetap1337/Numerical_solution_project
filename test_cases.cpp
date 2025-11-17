@@ -13,7 +13,7 @@ void setup_test_case(Config& cfg) {
         cfg.phys.right.rho = 0.125;  cfg.phys.right.u = 0.0;   cfg.phys.right.p = 0.1;
         
         
-        cfg.grid.x_diaphragm = 0.3;
+        cfg.grid.x_diaphragm = 0.5;
         cfg.grid.t_final = 0.2;
         break;
 
