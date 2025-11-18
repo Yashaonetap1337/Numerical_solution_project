@@ -20,7 +20,7 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
     const double gamma = cfg.phys.gamma;
     const int total_cells = grid.Nx + 2 * grid.num_fict;
 
-    //1. РЕКОНСТРУКЦИЯ: вычисление delta_rho, delta_u, delta_p
+    //РЕКОНСТРУКЦИЯ
     std::vector<double> delta_rho(total_cells), delta_u(total_cells), delta_p(total_cells);
 
     for (int i = 1; i < total_cells - 1; ++i) {
@@ -38,7 +38,6 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         delta_p[i] = minmod(dp_L, dp_R);
     }
 
-    // Граничные ячейки — копируем от соседей
     if (total_cells > 2) {
         delta_rho[0] = delta_rho[1];
         delta_rho[total_cells - 1] = delta_rho[total_cells - 2];
@@ -48,7 +47,7 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         delta_p[total_cells - 1] = delta_p[total_cells - 2];
     }
 
-    // === 2. ПРЕДИКТОР: вычисление U_pred без Римана (неконсервативный) ===
+    //2. ПРЕДИКТОР
     std::vector<Conserved> U_pred = grid.U; // копируем текущий слой
 
     for (int i = 1; i < total_cells - 1; ++i) {
@@ -66,17 +65,15 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
             grid.W[i + 1].p - 0.5 * delta_p[i + 1]
         };
 
-        // Потоки без Римана: напрямую через physToFlux
+
         Flux F_right = physToFlux(W_right, gamma);
         Flux F_left = physToFlux(W_left, gamma);
 
-        // Обновление U_pred[i] (неконсервативно!)
         U_pred[i].rho -= (dt / dx) * (F_left.rho_f - F_right.rho_f);
         U_pred[i].rhou -= (dt / dx) * (F_left.rhou_f - F_right.rhou_f);
         U_pred[i].E -= (dt / dx) * (F_left.E_f - F_right.E_f);
     }
 
-    // Граничные ячейки — оставляем без изменения
     U_pred[0] = grid.U[0];
     U_pred[total_cells - 1] = grid.U[total_cells - 1];
 
@@ -86,7 +83,7 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         W_pred[i] = consToPhys(U_pred[i], gamma);
     }
 
-    // === 3. КОРРЕКТОР: вычисление потоков с Риманом на слое n+½ ===
+    // КОРРЕКТОР
 
     // Промежуточное состояние: W_half = 0.5 * (W^n + W_pred)
     std::vector<State> W_half(total_cells);
@@ -118,7 +115,7 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         fluxes[i] = physToFlux(state_at_interface, gamma);
     }
 
-    // === Обновление консервативных переменных  ===
+    
     for (int i = 0; i < grid.Nx; ++i) {
         const int cell_idx = i + grid.num_fict;
         const Flux& F_left = fluxes[i];
@@ -128,4 +125,5 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         grid.U[cell_idx].rhou -= (dt / dx) * (F_right.rhou_f - F_left.rhou_f);
         grid.U[cell_idx].E -= (dt / dx) * (F_right.E_f - F_left.E_f);
     }
+
 }
