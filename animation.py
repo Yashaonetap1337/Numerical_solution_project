@@ -13,7 +13,7 @@ def natural_sort_key(filename):
     return [int(text) if text.isdigit() else text.lower() 
             for text in re.split(r'(\d+)', filename)]
 
-def create_simple_animation(snapshot_dir='results', output_gif='animation.gif', duration=200):
+def create_simple_animation(snapshot_dir='results/snapshots', output_gif='animation.gif', duration=200):
     """
     Простой скрипт для создания GIF анимации из CSV файлов снимков
     """
