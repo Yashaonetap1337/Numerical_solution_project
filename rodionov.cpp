@@ -38,31 +38,19 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         delta_p[i] = minmod(dp_L, dp_R);
     }
 
-    if (total_cells > 2) {
-        delta_rho[0] = delta_rho[1];
-        delta_rho[total_cells - 1] = delta_rho[total_cells - 2];
-        delta_u[0] = delta_u[1];
-        delta_u[total_cells - 1] = delta_u[total_cells - 2];
-        delta_p[0] = delta_p[1];
-        delta_p[total_cells - 1] = delta_p[total_cells - 2];
-    }
-
     //2. ПРЕДИКТОР
     std::vector<Conserved> U_pred = grid.U; // копируем текущий слой
 
     for (int i = 1; i < total_cells - 1; ++i) {
-        // Внутренние экстраполированные состояния:
-        //   Q_right от (i-1): W[i-1] + 0.5 * delta_[i-1]
-        //   Q_left  от (i+1): W[i+1] - 0.5 * delta_[i+1]
         State W_right = {
-            grid.W[i - 1].rho + 0.5 * delta_rho[i - 1],
-            grid.W[i - 1].u + 0.5 * delta_u[i - 1],
-            grid.W[i - 1].p + 0.5 * delta_p[i - 1]
+            grid.W[i ].rho + 0.5 * delta_rho[i],
+            grid.W[i ].u + 0.5 * delta_u[i],
+            grid.W[i ].p + 0.5 * delta_p[i]
         };
         State W_left = {
-            grid.W[i + 1].rho - 0.5 * delta_rho[i + 1],
-            grid.W[i + 1].u - 0.5 * delta_u[i + 1],
-            grid.W[i + 1].p - 0.5 * delta_p[i + 1]
+            grid.W[i].rho - 0.5 * delta_rho[i],
+            grid.W[i ].u - 0.5 * delta_u[i],
+            grid.W[i].p - 0.5 * delta_p[i]
         };
 
 
