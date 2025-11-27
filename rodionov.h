@@ -3,4 +3,4 @@
 #include "grid.h"
 #include "types.h"
 #include <vector>
-void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& fluxes);
+void rodionov_step(Grid& grid, double dt, const Config& cfg);

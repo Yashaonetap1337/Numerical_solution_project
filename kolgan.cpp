@@ -1,5 +1,5 @@
-#include "kolgan.h"
-#include "riemann_solver.h"
+﻿#include "kolgan.h"
+#include "choice_of_riemann_solvers.h" 
 #include "euler_utils.h"
 #include <vector>
 #include <cmath>
@@ -19,14 +19,12 @@ static double minmod(double a, double b) {
 }
 
 
-void kolgan_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& fluxes) {
+void kolgan_flux_computation(const Grid& grid, const Config& cfg, std::vector<Flux>& fluxes) {
     const double dx = grid.dx;
     const double gamma = cfg.phys.gamma;
     const int total_cells = grid.Nx + 2 * grid.num_fict;
 
-    // вычисление ограниченных наклонов (ΔQ) для каждой ячейки
 
-    
     std::vector<double> delta_rho(total_cells), delta_u(total_cells), delta_p(total_cells); // временные векторы для хранения наклонов для каждой переменной
 
 
@@ -66,20 +64,9 @@ void kolgan_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& fl
         W_R_interface.p = grid.W[cell_i_plus_1].p - 0.5 * delta_p[cell_i_plus_1];
 
         // решаем задачу Римана с этими реконструированными значениями
-        const State state_at_interface = solve_general_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
+        const State state_at_interface = solve_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
 
         // вычисляем поток
         fluxes[i] = physToFlux(state_at_interface, gamma);
-    }
-
-    // обновление консервативных переменных в ячейках
-    for (int i = 0; i < grid.Nx; ++i) {
-        const int cell_idx = i + grid.num_fict;
-        const Flux& F_left = fluxes[i];
-        const Flux& F_right = fluxes[i + 1];
-
-        grid.U[cell_idx].rho -= (dt / dx) * (F_right.rho_f - F_left.rho_f);
-        grid.U[cell_idx].rhou -= (dt / dx) * (F_right.rhou_f - F_left.rhou_f);
-        grid.U[cell_idx].E -= (dt / dx) * (F_right.E_f - F_left.E_f);
     }
 }

@@ -1,10 +1,13 @@
-#include "solver.h" 
+﻿#include "solver.h" 
 #include "grid.h"   
 #include "boundary_conditions.h"
 #include "godunov.h" 
 #include "acoustic.h"
 #include "kolgan.h"
 #include "rodionov.h"
+#include "time_integrator.h"
+#include "eno.h"     
+#include "weno.h"     
 #include "euler_utils.h"
 #include "riemann_solver.h"
 #include "analytical.h"
@@ -23,13 +26,17 @@
 static int get_required_fict_cells(NumericalMethod method) {
     switch (method) {
     case NumericalMethod::GODUNOV:
-        return 1; 
+        return 1;
     case NumericalMethod::ACOUSTIC:
         return 1;
     case NumericalMethod::KOLGAN:
         return 2;
     case NumericalMethod::RODIONOV:
         return 2;
+    case NumericalMethod::ENO:
+        return 2; 
+    case NumericalMethod::WENO:
+        return 3; 
     default:
         throw std::runtime_error("The number of fictitious cells is not defined for the selected method!");
     }
@@ -51,7 +58,7 @@ static double calculate_timestep(const Grid& grid, const Config& cfg) {
 
 void save_snapshot(const Grid& grid, const Config& cfg, int step, double t, const std::string& filename) {
     // Создаем директорию, если она не существует
-    std::filesystem::create_directories(cfg.output.snapshots_directory);
+    // std::filesystem::create_directories(cfg.output.snapshots_directory);
 
     std::string full_filename = cfg.output.snapshots_directory + "/" + filename;
     std::ofstream file(full_filename);
@@ -109,7 +116,7 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
     while (t < cfg.grid.t_final) {
 
         apply_boundary_conditions(grid, cfg);
-
+        const double gamma = cfg.phys.gamma;
         // пересчитываем физические переменные из консервативных 
         for (int i = 0; i < grid.Nx + 2 * num_fict; ++i) {
             grid.W[i] = consToPhys(grid.U[i], cfg.phys.gamma);
@@ -121,22 +128,19 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
             dt = cfg.grid.t_final - t;
         }
 
-        std::vector<Flux> fluxes(grid.Nx + 1);
+        // --- ГЛАВНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ---
+        if (cfg.method == NumericalMethod::RODIONOV) {
+            // === ОСОБЫЙ ПУТЬ ДЛЯ РОДИОНОВА ===
+            // Этот метод сам управляет своим шагом по времени
+            apply_boundary_conditions(grid, cfg);
+            for (int i = 0; i < grid.U.size(); ++i) grid.W[i] = consToPhys(grid.U[i], gamma);
+            rodionov_step(grid, dt, cfg);
 
-        if (cfg.method == NumericalMethod::GODUNOV) {
-            godunov_step(grid, dt, cfg, fluxes);
-        }
-        else if (cfg.method == NumericalMethod::ACOUSTIC) {
-            acoustic_step(grid, dt, cfg);
-        }
-        else if (cfg.method == NumericalMethod::KOLGAN) {
-            kolgan_step(grid, dt, cfg, fluxes);
-        }
-        else if (cfg.method == NumericalMethod::RODIONOV) {
-            rodionov_step(grid, dt, cfg, fluxes);
         }
         else {
-            throw std::runtime_error("Unknown or not implemented numerical method selected!");
+            // === ОБЩИЙ ПУТЬ ДЛЯ ВСЕХ ОСТАЛЬНЫХ ===
+            // Вызываем универсальный интегратор по времени
+            time_step(grid, dt, cfg);
         }
 
 

@@ -1,4 +1,4 @@
-#include "types.h" 
+﻿#include "types.h" 
 
 #include <fstream>
 #include <sstream>
@@ -42,6 +42,8 @@ static NumericalMethod parseMethod(const std::string& s) {
     if (lower == "acoustic") return NumericalMethod::ACOUSTIC;
     if (lower == "kolgan") return NumericalMethod::KOLGAN;
     if (lower == "rodionov") return NumericalMethod::RODIONOV;
+    if (lower == "eno") return NumericalMethod::ENO;    
+    if (lower == "weno") return NumericalMethod::WENO;   
     throw std::runtime_error("Unknown numerical method: " + s);
 }
 
@@ -55,6 +57,24 @@ static ApproximationType parseApproxType(const std::string& s) {
     if (lower == "acoustic")    return ApproximationType::ACOUSTIC;
     if (lower == "average")     return ApproximationType::AVERAGE;
     throw std::runtime_error("Unknown approximation type: " + s);
+}
+
+// функция для парсинга типа интегратора
+static TimeIntegrator parseTimeIntegrator(const std::string& s) {
+    std::string lower = s;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower == "euler") return TimeIntegrator::EULER;
+    if (lower == "tvd_rk3") return TimeIntegrator::TVD_RK3;
+    throw std::runtime_error("Unknown time integrator type: " + s);
+}
+
+// функция для парсинга типа решателя Римана
+static RiemannSolverType parseRiemannSolverType(const std::string& s) {
+    std::string lower = s;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower == "exact") return RiemannSolverType::EXACT;
+    if (lower == "acoustic") return RiemannSolverType::ACOUSTIC;
+    throw std::runtime_error("Unknown Riemann solver type: " + s);
 }
 
 static TypesOfVarForReconstruction parseVarType(const std::string& s) {
@@ -150,6 +170,12 @@ Config readConfig(const std::string& filename) {
                 }
                 else if (key == "reconstruction") {
                     cfg.var_type = parseVarType(valueStr);
+                }
+                else if (key == "time_integrator") {
+                    cfg.time_integrator = parseTimeIntegrator(valueStr);
+                }
+                else if (key == "riemann_solver") {
+                    cfg.riemann_solver_type = parseRiemannSolverType(valueStr);
                 }
                 else {
                     throw std::runtime_error("Unknown method parameter: " + key);

@@ -1,6 +1,6 @@
 [PhysicalParameters]
 
-test_case = 2
+test_case = 5
 
 gamma = 1.4
 rho_left = 1.0
@@ -14,14 +14,17 @@ p_right = 0.1
 x_min = 0.0
 x_max = 1.0
 x_diaphragm = 0.5 
-Nx = 2000
+Nx = 500
 t_final = 0.25
 CFL = 0.125
 
 
 [NumericalMethod]
-method = godunov
+method = weno
+riemann_solver = exact              # exact или acoustic
 approximation = average
+time_integrator = tvd_rk3           # euler или tvd_rk3
+
 
 [Output]
 snapshot_output = by_time       
@@ -30,5 +33,5 @@ snapshot_interval_time = 0.01
 snapshots_directory = results/snapshots
 
 [BoundaryConditions]
-left_boundary = WALL
-right_boundary = FREE   
+left_boundary = FREE
+right_boundary = FREE  

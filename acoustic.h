@@ -1,5 +1,5 @@
 #pragma once
 #include "types.h"
 
-// Р¤СѓРЅРєС†РёСЏ, РІС‹РїРѕР»РЅСЏСЋС‰Р°СЏ РѕРґРёРЅ С€Р°Рі РїРѕ РІСЂРµРјРµРЅРё Р°РєСѓСЃС‚РёС‡РµСЃРєРёРј РјРµС‚РѕРґРѕРј
-void acoustic_step(Grid& grid, double dt, const Config& cfg);
+// Функция, выполняющая один шаг по времени акустическим методом
+void acoustic_flux_computation(const Grid& grid, const Config& cfg, std::vector<Flux>& fluxes);

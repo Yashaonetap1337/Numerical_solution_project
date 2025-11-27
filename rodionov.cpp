@@ -1,5 +1,5 @@
 ﻿#include "rodionov.h"
-#include "riemann_solver.h"
+#include "choice_of_riemann_solvers.h" 
 #include "euler_utils.h"
 #include <vector>
 #include <cmath>
@@ -15,7 +15,7 @@ static double minmod(double a, double b) {
     return b;
 }
 
-void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& fluxes) {
+void rodionov_step(Grid& grid, double dt, const Config& cfg) {
     const double dx = grid.dx;
     const double gamma = cfg.phys.gamma;
     const int total_cells = grid.Nx + 2 * grid.num_fict;
@@ -43,13 +43,13 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
 
     for (int i = 1; i < total_cells - 1; ++i) {
         State W_right = {
-            grid.W[i ].rho + 0.5 * delta_rho[i],
-            grid.W[i ].u + 0.5 * delta_u[i],
-            grid.W[i ].p + 0.5 * delta_p[i]
+            grid.W[i].rho + 0.5 * delta_rho[i],
+            grid.W[i].u + 0.5 * delta_u[i],
+            grid.W[i].p + 0.5 * delta_p[i]
         };
         State W_left = {
             grid.W[i].rho - 0.5 * delta_rho[i],
-            grid.W[i ].u - 0.5 * delta_u[i],
+            grid.W[i].u - 0.5 * delta_u[i],
             grid.W[i].p - 0.5 * delta_p[i]
         };
 
@@ -81,6 +81,8 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         W_half[i].p = 0.5 * (grid.W[i].p + W_pred[i].p);
     }
 
+
+    std::vector<Flux> fluxes(grid.Nx + 1);
     // Вычисляем потоки на гранях (как в Kolgan, но с W_half и теми же delta_*)
     for (int i = 0; i <= grid.Nx; ++i) {
         int cell_i = i + grid.num_fict - 1;
@@ -96,14 +98,12 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg, std::vector<Flux>& 
         W_R_interface.u = W_half[cell_i_plus_1].u - 0.5 * delta_u[cell_i_plus_1];
         W_R_interface.p = W_half[cell_i_plus_1].p - 0.5 * delta_p[cell_i_plus_1];
 
-        const State state_at_interface = solve_general_riemann_problem(
-            W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type
-        );
+        const State state_at_interface = solve_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
 
         fluxes[i] = physToFlux(state_at_interface, gamma);
     }
 
-    
+
     for (int i = 0; i < grid.Nx; ++i) {
         const int cell_idx = i + grid.num_fict;
         const Flux& F_left = fluxes[i];
