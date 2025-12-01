@@ -76,10 +76,10 @@ if __name__ == "__main__":
     # но также работает и без них, используя имена файлов по умолчанию.
     parser = argparse.ArgumentParser(description="Построение графиков для задачи о распаде разрыва.")
     
-    parser.add_argument('--num', default='numerical_solution.csv',
+    parser.add_argument('--num', default='final_state.csv',
                         help='Имя файла с численным решением (по умолчанию: numerical_solution.csv)')
     
-    parser.add_argument('--analyt', default='analytical_solution.csv',
+    parser.add_argument('--analyt', default='analytical_final_state.csv',
                         help='Имя файла с аналитическим решением (по умолчанию: analytical_solution.csv)')
 
     args = parser.parse_args()
