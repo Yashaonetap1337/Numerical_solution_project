@@ -4,10 +4,8 @@
 #include <vector>
 #include <cmath>
 
-// Вспомогательная функция для WENO-реконструкции ОДНОЙ переменной (ЛЕВАЯ) 
-// Вычисляет значение СЛЕВА от границы i+1/2 (т.е., на правой стороне ячейки i)
+
 static double weno5_reconstruct_left(const std::vector<double>& v, int i) {
-    // Шаблоны строятся относительно ячейки i
     const double v_m2 = v[i - 2], v_m1 = v[i - 1], v_0 = v[i], v_p1 = v[i + 1], v_p2 = v[i + 2];
 
     // Полиномы для 3-х шаблонов
@@ -37,8 +35,7 @@ static double weno5_reconstruct_left(const std::vector<double>& v, int i) {
     return w0 * p0 + w1 * p1 + w2 * p2;
 }
 
-// Вспомогательная функция для WENO-реконструкции ОДНОЙ переменной (ПРАВАЯ)
-// Вычисляет значение СПРАВА от границы i-1/2 (т.е., на левой стороне ячейки i)
+
 static double weno5_reconstruct_right(const std::vector<double>& v, int i) {
     const double v_m2 = v[i - 2], v_m1 = v[i - 1], v_0 = v[i], v_p1 = v[i + 1], v_p2 = v[i + 2];
 
@@ -83,31 +80,26 @@ void weno_flux_computation(const Grid& grid, const Config& cfg, std::vector<Flux
         int cell_i = i + grid.num_fict - 1;
         int cell_i_plus_1 = i + grid.num_fict;
 
-        // Проверка на выход за границы шаблона (остается без изменений)
-        if (cell_i < 2 || cell_i > total_cells - 4) { // cell_i_plus_1 будет в границах автоматически
+
+        if (cell_i < 2 || cell_i > total_cells - 4) {
             const State W_L = grid.W[cell_i];
             const State W_R = grid.W[cell_i + 1];
-            const State state_at_interface = solve_riemann_problem(W_L, W_R, 0.0, cfg, cfg.approx_type);
-            fluxes[i] = physToFlux(state_at_interface, gamma);
+
+            fluxes[i] = compute_interface_flux(W_L, W_R, cfg);
             continue;
         }
 
-        //  Реконструкция на границе i+1/2
+
         State W_L_interface, W_R_interface;
 
-        // W_L_interface: Значение СЛЕВА от границы i+1/2.
-        // Это экстраполяция из ячейки `cell_i` на ее правую границу.
         W_L_interface.rho = weno5_reconstruct_left(rho, cell_i);
         W_L_interface.u = weno5_reconstruct_left(u, cell_i);
         W_L_interface.p = weno5_reconstruct_left(p, cell_i);
 
-        // W_R_interface: Значение СПРАВА от границы i+1/2.
-        // Это экстраполяция из ячейки `cell_i_plus_1` на ее левую границу.
         W_R_interface.rho = weno5_reconstruct_right(rho, cell_i_plus_1);
         W_R_interface.u = weno5_reconstruct_right(u, cell_i_plus_1);
         W_R_interface.p = weno5_reconstruct_right(p, cell_i_plus_1);
 
-        const State state_at_interface = solve_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
-        fluxes[i] = physToFlux(state_at_interface, gamma);
+        fluxes[i] = compute_interface_flux(W_L_interface, W_R_interface, cfg);
     }
 }

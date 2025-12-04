@@ -13,9 +13,6 @@ void godunov_flux_computation(const Grid& grid, const Config& cfg, std::vector<F
         const State W_L = grid.W[i + grid.num_fict - 1];
         const State W_R = grid.W[i + grid.num_fict];
 
-        State state_at_interface;
-
-        state_at_interface = solve_riemann_problem(W_L, W_R, 0.0, cfg, cfg.approx_type);
-        fluxes[i] = physToFlux(state_at_interface, gamma);
+        fluxes[i] = compute_interface_flux(W_L, W_R, cfg);
     }
 }

@@ -1,6 +1,6 @@
 [PhysicalParameters]
 
-test_case = 5
+test_case = 1
 
 gamma = 1.4
 rho_left = 1.0
@@ -13,25 +13,30 @@ p_right = 0.1
 [GridParameters]
 x_min = 0.0
 x_max = 1.0
-x_diaphragm = 0.5 
+x_diaphragm = 0.5
 Nx = 500
 t_final = 0.25
 CFL = 0.125
 
 
 [NumericalMethod]
-method = weno
-riemann_solver = exact              # exact или acoustic
+method = kolgan               # godunov, kolgan, rodionov, eno, weno, maccormack
+riemann_solver = roe              # exact, acoustic, roe
 approximation = average
-time_integrator = tvd_rk3           # euler или tvd_rk3
+time_integrator = euler             # euler или tvd_rk3
+
+reconstruction = nonconservative
+
+flux_correction = none       # none, viscosity, fct
+visc_coeff = 0.02
 
 
 [Output]
-snapshot_output = by_time       
-snapshot_interval_steps = 100    
+snapshot_output = by_time     
+snapshot_interval_steps = 100   
 snapshot_interval_time = 0.01    
 snapshots_directory = results/snapshots
 
 [BoundaryConditions]
 left_boundary = FREE
-right_boundary = FREE  
+right_boundary = FREE 

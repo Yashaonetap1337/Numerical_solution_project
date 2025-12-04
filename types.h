@@ -17,23 +17,22 @@ struct Conserved {
     double rhou = 0.0; // U2: Плотность импульса
     double E = 0.0;    // U3: Полная энергия
 
-    // --- НАЧАЛО НОВЫХ ОПЕРАТОРОВ ---
 
-    // 1. "Научим" складывать два объекта Conserved (U1 + U2)
     Conserved operator+(const Conserved& other) const {
         return { rho + other.rho, rhou + other.rhou, E + other.E };
     }
 
-    // 2. "Научим" умножать объект Conserved на число (U * a)
+    Conserved operator-(const Conserved& other) const {
+        return { rho - other.rho, rhou - other.rhou, E - other.E };
+    }
+
     Conserved operator*(double scalar) const {
         return { rho * scalar, rhou * scalar, E * scalar };
     }
 };
 
-// 3. "Научим" умножать число на объект Conserved (a * U)
-//    Это нужно для выражений вида `dt * rhs1[i]`
 inline Conserved operator*(double scalar, const Conserved& cons) {
-    return cons * scalar; // Используем уже определенный оператор выше
+    return cons * scalar;
 }
 
 
@@ -42,8 +41,25 @@ struct Flux {
     double rho_f = 0.0;
     double rhou_f = 0.0;
     double E_f = 0.0;
+
+
+    Flux operator-(const Flux& other) const {
+        return { rho_f - other.rho_f, rhou_f - other.rhou_f, E_f - other.E_f };
+    }
+
+    Flux operator*(double scalar) const {
+        return { rho_f * scalar, rhou_f * scalar, E_f * scalar };
+    }
+
 };
 
+inline Conserved operator*(double scalar, const Flux& flux) {
+    return {
+        scalar * flux.rho_f,
+        scalar * flux.rhou_f,
+        scalar * flux.E_f
+    };
+}
 
 struct PhysicalParameters {
     int test_case = 0;
@@ -105,8 +121,9 @@ enum class NumericalMethod {
     ACOUSTIC,
     KOLGAN,
     RODIONOV,
-    ENO,  
-    WENO   
+    ENO,
+    WENO,
+    MACCORMACK
 };
 
 // Тип аппроксимации начального давления
@@ -119,8 +136,9 @@ enum class ApproximationType {
 
 
 enum class RiemannSolverType {
-    EXACT,    
-    ACOUSTIC  
+    EXACT,
+    ACOUSTIC,
+    ROE
 };
 
 // Тип используемых переменных
@@ -135,7 +153,13 @@ enum class TimeIntegrator {
 };
 
 
-// Лол
+enum class FluxCorrectionType {
+    NONE,
+    VISCOSITY,      // Искусственная вязкость 
+    FCT             // Диффузия + Антидиффузия 
+};
+
+
 struct Config {
     PhysicalParameters phys;
     GridParameters grid;
@@ -147,6 +171,8 @@ struct Config {
     OutputParams output;
     BoundaryType left_boundary;
     BoundaryType right_boundary;
+    FluxCorrectionType flux_correction = FluxCorrectionType::NONE;
+    double viscosity_coeff = 0.1; // Коэффициент вязкости (или диффузии)
 };
 
 

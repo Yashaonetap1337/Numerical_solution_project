@@ -1,74 +1,64 @@
 #include "eno.h"
-#include "choice_of_riemann_solvers.h" 
 #include "euler_utils.h"
-#include <vector>
+#include "choice_of_riemann_solvers.h" 
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 
-static void eno3_reconstruction(const std::vector<double>& v, int i,
-    double& val_L, double& val_R)
-{
+static int determine_stencil_shift(const std::vector<double>& v, int i) {
 
-    // Шаблон S2 
-    double smoothness_S2 = std::abs((v[i] - v[i - 1]) - (v[i - 1] - v[i - 2]));
-    // Шаблон S1
-    double smoothness_S1 = std::abs((v[i + 1] - v[i]) - (v[i] - v[i - 1]));
-    // Шаблон S0 
-    double smoothness_S0 = std::abs((v[i + 2] - v[i + 1]) - (v[i + 1] - v[i]));
+    double d1_left = std::abs(v[i] - v[i - 1]);
+    double d1_right = std::abs(v[i + 1] - v[i]);
 
-    //const double v_m2 = v[i - 2], v_m1 = v[i - 1], v_0 = v[i], v_p1 = v[i + 1], v_p2 = v[i + 2];
-
-    //// Полиномы для 3-х шаблонов
-    //const double p0 = (2.0 / 6.0) * v_m2 - (7.0 / 6.0) * v_m1 + (11.0 / 6.0) * v_0;
-    //const double p1 = (-1.0 / 6.0) * v_m1 + (5.0 / 6.0) * v_0 + (2.0 / 6.0) * v_p1;
-    //const double p2 = (2.0 / 6.0) * v_0 + (5.0 / 6.0) * v_p1 - (1.0 / 6.0) * v_p2;
-
-    if (smoothness_S2 < smoothness_S1 && smoothness_S2 < smoothness_S0) {
-        // шаблон S2 
-        val_L = (1.0 / 3.0) * v[i - 2] - (7.0 / 6.0) * v[i - 1] + (11.0 / 6.0) * v[i];
-    }
-    else if (smoothness_S1 < smoothness_S2 && smoothness_S1 < smoothness_S0) {
-        // шаблон S1 
-        val_L = (-1.0 / 6.0) * v[i - 1] + (5.0 / 6.0) * v[i] + (2.0 / 6.0) * v[i + 1];
-    }
-    else {
-        //  шаблон S0 
-        val_L = (1.0 / 3.0) * v[i] + (5.0 / 6.0) * v[i + 1] - (1.0 / 6.0) * v[i + 2];
+    int k_min = i;
+    if (d1_left < d1_right) {
+        k_min = i - 1;
     }
 
+    double d2_left = std::abs(v[k_min + 1] - 2.0 * v[k_min] + v[k_min - 1]);
+    double d2_right = std::abs(v[k_min + 2] - 2.0 * v[k_min + 1] + v[k_min]);
 
-
-    // Шаблон S2 
-    double smoothness_S2_R = std::abs((v[i+1] - v[i ]) - (v[i ] - v[i - 1]));
-    // Шаблон S1
-    double smoothness_S1_R = std::abs((v[i + 2] - v[i+1]) - (v[i+1] - v[i]));
-    // Шаблон S0 
-    double smoothness_S0_R = std::abs((v[i + 3] - v[i + 2]) - (v[i + 2] - v[i+1]));
-
-    //const double v_m2 = v[i - 2], v_m1 = v[i - 1], v_0 = v[i], v_p1 = v[i + 1], v_p2 = v[i + 2];
-
-    //// Полиномы для 3-х шаблонов 
-    //const double p0 = (-1.0 / 6.0) * v_m2 + (5.0 / 6.0) * v_m1 + (2.0 / 6.0) * v_0;
-    //const double p1 = (2.0 / 6.0) * v_m1 + (5.0 / 6.0) * v_0 - (1.0 / 6.0) * v_p1;
-    //const double p2 = (11.0 / 6.0) * v_0 - (7.0 / 6.0) * v_p1 + (2.0 / 6.0) * v_p2;
-
-
-
-    if (smoothness_S2_R < smoothness_S1_R && smoothness_S2_R < smoothness_S0_R) {
-        // шаблон S2 
-        val_R = (1.0 / 3.0) * v[i - 1] - (7.0 / 6.0) * v[i] + (11.0 / 6.0) * v[i+1];
+    if (d2_left < d2_right) {
+        k_min = k_min - 1;
     }
-    else if (smoothness_S1_R < smoothness_S2_R && smoothness_S1_R < smoothness_S0_R) {
-        // шаблон S1
-        val_R = (-1.0 / 6.0) * v[i] + (5.0 / 6.0) * v[i+1] + (2.0 / 6.0) * v[i + 2];
-    }
-    else {
-        // шаблон S0 
-        val_R = (1.0 / 3.0) * v[i+1] + (5.0 / 6.0) * v[i + 2] - (1.0 / 6.0) * v[i + 3];
-    }
+    int r = i - k_min;
 
+    return r;
+}
 
+static double eno3_reconstruct_right_face(const std::vector<double>& v, int i) {
+    int r = determine_stencil_shift(v, i);
+
+    if (r == 0) {
+        // Шаблон {i, i+1, i+2}
+        return (1.0 / 3.0) * v[i] + (5.0 / 6.0) * v[i + 1] - (1.0 / 6.0) * v[i + 2];
+    }
+    else if (r == 1) {
+        // Шаблон {i-1, i, i+1}
+        return -(1.0 / 6.0) * v[i - 1] + (5.0 / 6.0) * v[i] + (1.0 / 3.0) * v[i + 1];
+    }
+    else { // r == 2
+        // Шаблон {i-2, i-1, i}
+        return (1.0 / 3.0) * v[i - 2] - (7.0 / 6.0) * v[i - 1] + (11.0 / 6.0) * v[i];
+    }
+}
+
+static double eno3_reconstruct_left_face(const std::vector<double>& v, int i) {
+    int r = determine_stencil_shift(v, i);
+
+    if (r == 0) {
+        // Шаблон {i, i+1, i+2} 
+        return (11.0 / 6.0) * v[i] - (7.0 / 6.0) * v[i + 1] + (1.0 / 3.0) * v[i + 2];
+    }
+    else if (r == 1) {
+        // Шаблон {i-1, i, i+1}
+        return (1.0 / 3.0) * v[i - 1] + (5.0 / 6.0) * v[i] - (1.0 / 6.0) * v[i + 1];
+    }
+    else { // r == 2
+        // Шаблон {i-2, i-1, i}
+        return -(1.0 / 6.0) * v[i - 2] + (5.0 / 6.0) * v[i - 1] + (1.0 / 3.0) * v[i];
+    }
 }
 
 
@@ -76,38 +66,51 @@ void eno_flux_computation(const Grid& grid, const Config& cfg, std::vector<Flux>
     const double gamma = cfg.phys.gamma;
     const int total_cells = grid.Nx + 2 * grid.num_fict;
 
-    std::vector<double> rho(total_cells), u(total_cells), p(total_cells);
-    for (int i = 0; i < total_cells; ++i) {
-        rho[i] = grid.W[i].rho; u[i] = grid.W[i].u; p[i] = grid.W[i].p;
+    std::vector<double> v1(total_cells), v2(total_cells), v3(total_cells);
+
+    if (cfg.var_type == TypesOfVarForReconstruction::NONCONSERVATIVE) {
+        for (int i = 0; i < total_cells; ++i) {
+            v1[i] = grid.W[i].rho;
+            v2[i] = grid.W[i].u;
+            v3[i] = grid.W[i].p;
+        }
+    }
+    else {
+        for (int i = 0; i < total_cells; ++i) {
+            v1[i] = grid.U[i].rho;
+            v2[i] = grid.U[i].rhou;
+            v3[i] = grid.U[i].E;
+        }
     }
 
     for (int i = 0; i <= grid.Nx; ++i) {
-        int cell_i = i + grid.num_fict - 1;
+
+        int idx_L = i + grid.num_fict - 1; 
+        int idx_R = i + grid.num_fict;     
+
+        State state_L, state_R;
+
+        double val1_L = eno3_reconstruct_right_face(v1, idx_L);
+        double val2_L = eno3_reconstruct_right_face(v2, idx_L);
+        double val3_L = eno3_reconstruct_right_face(v3, idx_L);
 
 
-        if (cell_i < 2 || cell_i > total_cells - 4) {
-            const State W_L = grid.W[cell_i];
-            const State W_R = grid.W[cell_i + 1];
-            const State state_at_interface = solve_riemann_problem(W_L, W_R, 0.0, cfg, cfg.approx_type);
-            fluxes[i] = physToFlux(state_at_interface, gamma);
-            continue;
+        double val1_R = eno3_reconstruct_left_face(v1, idx_R);
+        double val2_R = eno3_reconstruct_left_face(v2, idx_R);
+        double val3_R = eno3_reconstruct_left_face(v3, idx_R);
+
+
+        if (cfg.var_type == TypesOfVarForReconstruction::NONCONSERVATIVE) {
+            state_L.rho = val1_L; state_L.u = val2_L; state_L.p = val3_L;
+            state_R.rho = val1_R; state_R.u = val2_R; state_R.p = val3_R;
+        }
+        else {
+            Conserved U_L = { val1_L, val2_L, val3_L };
+            Conserved U_R = { val1_R, val2_R, val3_R };
+            state_L = consToPhys(U_L, gamma);
+            state_R = consToPhys(U_R, gamma);
         }
 
-        State W_L_interface, W_R_interface;
-
-        eno3_reconstruction(rho, cell_i, W_L_interface.rho, W_R_interface.rho);
-        eno3_reconstruction(u, cell_i, W_L_interface.u, W_R_interface.u);
-        eno3_reconstruction(p, cell_i, W_L_interface.p, W_R_interface.p);
-
-
-        const double EPS = 1e-9;
-        if (W_L_interface.rho < EPS) W_L_interface.rho = grid.W[cell_i].rho;
-        if (W_L_interface.p < EPS)   W_L_interface.p = grid.W[cell_i].p;
-        if (W_R_interface.rho < EPS) W_R_interface.rho = grid.W[cell_i + 1].rho;
-        if (W_R_interface.p < EPS)   W_R_interface.p = grid.W[cell_i + 1].p;
-
-
-        const State state_at_interface = solve_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
-        fluxes[i] = physToFlux(state_at_interface, gamma);
+        fluxes[i] = compute_interface_flux(state_L, state_R, cfg);
     }
 }

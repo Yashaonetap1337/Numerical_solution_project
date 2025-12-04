@@ -11,6 +11,8 @@
 #include "euler_utils.h"
 #include "riemann_solver.h"
 #include "analytical.h"
+#include "maccormack.h"
+#include "flux_correction.h"
 
 #include <iostream>
 #include <fstream>
@@ -23,23 +25,38 @@
 
 
 // функция, которая определяет необходимое количество фиктивных ячеек для каждого метода
-static int get_required_fict_cells(NumericalMethod method) {
-    switch (method) {
+static int get_required_fict_cells(const Config& cfg) {
+    int method_req = 0;
+    switch (cfg.method) {
     case NumericalMethod::GODUNOV:
-        return 1;
+        method_req = 1;
+        break;
     case NumericalMethod::ACOUSTIC:
-        return 1;
+        method_req = 1;
+        break;
     case NumericalMethod::KOLGAN:
-        return 2;
+        method_req = 2;
+        break;
     case NumericalMethod::RODIONOV:
-        return 2;
+        method_req = 2;
+        break;
     case NumericalMethod::ENO:
-        return 2; 
+        method_req = 4;
+        break;
     case NumericalMethod::WENO:
-        return 3; 
+        method_req = 3;
+        break;
+    case NumericalMethod::MACCORMACK: 
+        method_req = 1;
+        break;
     default:
         throw std::runtime_error("The number of fictitious cells is not defined for the selected method!");
     }
+    // Если включена коррекция FCT или Вязкость (вязкость часто требует 1 соседа, FCT - 2)
+    if (cfg.flux_correction == FluxCorrectionType::FCT) {
+        return std::max(method_req, 2);
+    }
+    return method_req;
 }
 
 
@@ -82,7 +99,7 @@ void save_snapshot(const Grid& grid, const Config& cfg, int step, double t, cons
 
 void run_simulation(const Config& cfg, const std::string& outputFilename) {
 
-    int num_fict = get_required_fict_cells(cfg.method);
+    int num_fict = get_required_fict_cells(cfg);
     Grid grid(cfg.grid.Nx, num_fict);
 
 
@@ -128,21 +145,23 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
             dt = cfg.grid.t_final - t;
         }
 
-        // --- ГЛАВНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ---
-        if (cfg.method == NumericalMethod::RODIONOV) {
-            // === ОСОБЫЙ ПУТЬ ДЛЯ РОДИОНОВА ===
-            // Этот метод сам управляет своим шагом по времени
-            apply_boundary_conditions(grid, cfg);
-            for (int i = 0; i < grid.U.size(); ++i) grid.W[i] = consToPhys(grid.U[i], gamma);
-            rodionov_step(grid, dt, cfg);
+        if (cfg.method == NumericalMethod::RODIONOV || cfg.method == NumericalMethod::MACCORMACK) {
 
+            for (int i = 0; i < grid.U.size(); ++i) grid.W[i] = consToPhys(grid.U[i], cfg.phys.gamma);
+            apply_boundary_conditions(grid, cfg);
+
+            if (cfg.method == NumericalMethod::RODIONOV) {
+                rodionov_step(grid, dt, cfg);
+            }
+            else {
+                maccormack_step(grid, dt, cfg);
+            }
         }
         else {
-            // === ОБЩИЙ ПУТЬ ДЛЯ ВСЕХ ОСТАЛЬНЫХ ===
-            // Вызываем универсальный интегратор по времени
             time_step(grid, dt, cfg);
         }
 
+        apply_flux_correction(grid, cfg);
 
         t += dt;
         step++;

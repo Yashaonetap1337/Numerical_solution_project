@@ -98,9 +98,7 @@ void rodionov_step(Grid& grid, double dt, const Config& cfg) {
         W_R_interface.u = W_half[cell_i_plus_1].u - 0.5 * delta_u[cell_i_plus_1];
         W_R_interface.p = W_half[cell_i_plus_1].p - 0.5 * delta_p[cell_i_plus_1];
 
-        const State state_at_interface = solve_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
-
-        fluxes[i] = physToFlux(state_at_interface, gamma);
+        fluxes[i] = compute_interface_flux(W_L_interface, W_R_interface, cfg);
     }
 
 

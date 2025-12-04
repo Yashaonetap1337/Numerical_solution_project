@@ -42,8 +42,10 @@ static NumericalMethod parseMethod(const std::string& s) {
     if (lower == "acoustic") return NumericalMethod::ACOUSTIC;
     if (lower == "kolgan") return NumericalMethod::KOLGAN;
     if (lower == "rodionov") return NumericalMethod::RODIONOV;
-    if (lower == "eno") return NumericalMethod::ENO;    
-    if (lower == "weno") return NumericalMethod::WENO;   
+    if (lower == "eno") return NumericalMethod::ENO;
+    if (lower == "weno") return NumericalMethod::WENO;
+    if (lower == "maccormack") return NumericalMethod::MACCORMACK;
+
     throw std::runtime_error("Unknown numerical method: " + s);
 }
 
@@ -74,6 +76,7 @@ static RiemannSolverType parseRiemannSolverType(const std::string& s) {
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     if (lower == "exact") return RiemannSolverType::EXACT;
     if (lower == "acoustic") return RiemannSolverType::ACOUSTIC;
+    if (lower == "roe") return RiemannSolverType::ROE;
     throw std::runtime_error("Unknown Riemann solver type: " + s);
 }
 
@@ -96,6 +99,16 @@ static SnapshotOutputType parseSnapshotOutputType(const std::string& s) {
     if (lower == "by_steps") return SnapshotOutputType::BY_STEPS;
     if (lower == "by_time") return SnapshotOutputType::BY_TIME;
     throw std::runtime_error("Unknown snapshot output type: " + s);
+}
+
+static FluxCorrectionType parseFluxCorrection(const std::string& s) {
+    std::string lower = s;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+    if (lower == "none") return FluxCorrectionType::NONE;
+    if (lower == "viscosity") return FluxCorrectionType::VISCOSITY;
+    if (lower == "fct") return FluxCorrectionType::FCT;
+    return FluxCorrectionType::NONE;
 }
 
 // функция для чтения конфигурационного файла
@@ -176,6 +189,12 @@ Config readConfig(const std::string& filename) {
                 }
                 else if (key == "riemann_solver") {
                     cfg.riemann_solver_type = parseRiemannSolverType(valueStr);
+                }
+                else if (key == "flux_correction") {
+                    cfg.flux_correction = parseFluxCorrection(valueStr);
+                }
+                else if (key == "visc_coeff") {
+                    cfg.viscosity_coeff = stringToDouble(valueStr);
                 }
                 else {
                     throw std::runtime_error("Unknown method parameter: " + key);

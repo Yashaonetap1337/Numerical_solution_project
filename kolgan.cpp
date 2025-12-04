@@ -63,10 +63,6 @@ void kolgan_flux_computation(const Grid& grid, const Config& cfg, std::vector<Fl
         W_R_interface.u = grid.W[cell_i_plus_1].u - 0.5 * delta_u[cell_i_plus_1];
         W_R_interface.p = grid.W[cell_i_plus_1].p - 0.5 * delta_p[cell_i_plus_1];
 
-        // решаем задачу Римана с этими реконструированными значениями
-        const State state_at_interface = solve_riemann_problem(W_L_interface, W_R_interface, 0.0, cfg, cfg.approx_type);
-
-        // вычисляем поток
-        fluxes[i] = physToFlux(state_at_interface, gamma);
+        fluxes[i] = compute_interface_flux(W_L_interface, W_R_interface, cfg);
     }
 }
