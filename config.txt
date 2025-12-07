@@ -1,6 +1,6 @@
 [PhysicalParameters]
 
-test_case = 1
+test_case = 3
 
 gamma = 1.4
 rho_left = 1.0
@@ -20,8 +20,8 @@ CFL = 0.125
 
 
 [NumericalMethod]
-method = kolgan               # godunov, kolgan, rodionov, eno, weno, maccormack
-riemann_solver = roe              # exact, acoustic, roe
+method = hllc               # godunov, kolgan, rodionov, eno, weno, maccormack, hll, hllc
+riemann_solver = exact              # exact, acoustic, roe
 approximation = average
 time_integrator = euler             # euler или tvd_rk3
 

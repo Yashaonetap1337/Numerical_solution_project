@@ -45,7 +45,8 @@ static NumericalMethod parseMethod(const std::string& s) {
     if (lower == "eno") return NumericalMethod::ENO;
     if (lower == "weno") return NumericalMethod::WENO;
     if (lower == "maccormack") return NumericalMethod::MACCORMACK;
-
+    if (lower == "hll") return NumericalMethod::HLL;
+    if (lower == "hllc") return NumericalMethod::HLLC;
     throw std::runtime_error("Unknown numerical method: " + s);
 }
 

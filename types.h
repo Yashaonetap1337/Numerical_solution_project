@@ -123,7 +123,9 @@ enum class NumericalMethod {
     RODIONOV,
     ENO,
     WENO,
-    MACCORMACK
+    MACCORMACK,
+    HLL,
+    HLLC
 };
 
 // Тип аппроксимации начального давления
