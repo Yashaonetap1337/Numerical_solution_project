@@ -1,4 +1,4 @@
-п»ї#include "time_integrator.h"
+#include "time_integrator.h"
 #include "euler_utils.h"
 #include "boundary_conditions.h"
 #include <vector>
@@ -12,10 +12,10 @@
 #include "acoustic.h"
 #include "hll.h"
 #include "hllc.h"
-// Р’С‹С‡РёСЃР»РµРЅРёРµ РїСЂР°РІРѕР№ С‡Р°СЃС‚Рё L(U)
-// Р­С‚Р° С„СѓРЅРєС†РёСЏ СЏРІР»СЏРµС‚СЃСЏ "РјРѕСЃС‚РѕРј" РјРµР¶РґСѓ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅРѕР№ Рё РІСЂРµРјРµРЅРЅРѕР№ РґРёСЃРєСЂРµС‚РёР·Р°С†РёРµР№.
-// РћРЅР° РїСЂРёРЅРёРјР°РµС‚ С‚РµРєСѓС‰РµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ СЃРµС‚РєРё `grid` Рё РІС‹С‡РёСЃР»СЏРµС‚ РїСЂРѕРёР·РІРѕРґРЅСѓСЋ РїРѕ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІСѓ,
-// СЂРµР·СѓР»СЊС‚Р°С‚ (РІРµРєС‚РѕСЂ) Р·Р°РїРёСЃС‹РІР°РµС‚ РІ `rhs`.
+// Вычисление правой части L(U)
+// Эта функция является "мостом" между пространственной и временной дискретизацией.
+// Она принимает текущее состояние сетки `grid` и вычисляет производную по пространству,
+// результат (вектор) записывает в `rhs`.
 static void compute_rhs(const Grid& grid, const Config& cfg, std::vector<Conserved>& rhs) {
     const double dx = grid.dx;
     std::vector<Flux> fluxes(grid.Nx + 1);
@@ -36,40 +36,34 @@ static void compute_rhs(const Grid& grid, const Config& cfg, std::vector<Conserv
     case NumericalMethod::ACOUSTIC:
         acoustic_flux_computation(grid, cfg, fluxes);
         break;
-    case NumericalMethod::HLL:
-        hll_flux_computation(grid, cfg, fluxes);
-        break;
-    case NumericalMethod::HLLC:
-        hllc_flux_computation(grid, cfg, fluxes);
-        break;
     default:
         throw std::runtime_error("Unknown spatial method in compute_rhs");
     }
 
-    //Р’С‹С‡РёСЃР»СЏРµРј РїСЂР°РІСѓСЋ С‡Р°СЃС‚СЊ L(U) = - (F_{i+1/2} - F_{i-1/2}) / dx
-    // РЈР±РµРґРёРјСЃСЏ, С‡С‚Рѕ РІС‹С…РѕРґРЅРѕР№ РІРµРєС‚РѕСЂ РёРјРµРµС‚ РїСЂР°РІРёР»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ.
+    //Вычисляем правую часть L(U) = - (F_{i+1/2} - F_{i-1/2}) / dx
+    // Убедимся, что выходной вектор имеет правильный размер.
     rhs.resize(grid.U.size());
 
-    // РџСЂРѕС…РѕРґРёРј РїРѕ РІСЃРµРј Р Р•РђР›Р¬РќР«Рњ СЏС‡РµР№РєР°Рј
+    // Проходим по всем РЕАЛЬНЫМ ячейкам
     for (int i = 0; i < grid.Nx; ++i) {
-        // Р“Р»РѕР±Р°Р»СЊРЅС‹Р№ РёРЅРґРµРєСЃ С‚РµРєСѓС‰РµР№ СЂРµР°Р»СЊРЅРѕР№ СЏС‡РµР№РєРё
+        // Глобальный индекс текущей реальной ячейки
         const int cell_idx = i + grid.num_fict;
 
-        // РџРѕС‚РѕРєРё РЅР° Р»РµРІРѕР№ Рё РїСЂР°РІРѕР№ РіСЂР°РЅРёС†Р°С… СЌС‚РѕР№ СЏС‡РµР№РєРё
+        // Потоки на левой и правой границах этой ячейки
         const Flux& F_left = fluxes[i];
         const Flux& F_right = fluxes[i + 1];
 
-        // Р’С‹С‡РёСЃР»СЏРµРј Рё СЃРѕС…СЂР°РЅСЏРµРј РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅСѓСЋ РїСЂРѕРёР·РІРѕРґРЅСѓСЋ
+        // Вычисляем и сохраняем пространственную производную
         rhs[cell_idx].rho = -(F_right.rho_f - F_left.rho_f) / dx;
         rhs[cell_idx].rhou = -(F_right.rhou_f - F_left.rhou_f) / dx;
         rhs[cell_idx].E = -(F_right.E_f - F_left.E_f) / dx;
     }
 }
 
-//  РРЅС‚РµРіСЂР°С‚РѕСЂ Р­Р№Р»РµСЂР°
+//  Интегратор Эйлера
 static void euler_step(Grid& grid, double dt, const Config& cfg) {
     std::vector<Conserved> rhs;
-    compute_rhs(grid, cfg, rhs); // Р’С‹С‡РёСЃР»СЏРµРј L(U^n)
+    compute_rhs(grid, cfg, rhs); // Вычисляем L(U^n)
 
     // U^{n+1} = U^n + dt * L(U^n)
     for (size_t i = 0; i < grid.U.size(); ++i) {
@@ -77,27 +71,27 @@ static void euler_step(Grid& grid, double dt, const Config& cfg) {
     }
 }
 
-//  РРЅС‚РµРіСЂР°С‚РѕСЂ TVD RK3 
+//  Интегратор TVD RK3 
 static void tvd_rk3_step(Grid& grid, double dt, const Config& cfg) {
     const int total_cells = grid.U.size();
 
-    std::vector<Conserved> U_n = grid.U; // РЎРѕС…СЂР°РЅСЏРµРј U^n
+    std::vector<Conserved> U_n = grid.U; // Сохраняем U^n
 
-    // CС‚Р°РґРёСЏ 1 -> U^{(1)} 
+    // Cтадия 1 -> U^{(1)} 
     std::vector<Conserved> rhs1;
     compute_rhs(grid, cfg, rhs1);
     for (int i = 0; i < total_cells; ++i) grid.U[i] = U_n[i] + dt * rhs1[i];
     apply_boundary_conditions(grid, cfg);
     for (int i = 0; i < total_cells; ++i) grid.W[i] = consToPhys(grid.U[i], cfg.phys.gamma);
 
-    // РЎС‚Р°РґРёСЏ 2 -> U^{(2)}
+    // Стадия 2 -> U^{(2)}
     std::vector<Conserved> rhs2;
     compute_rhs(grid, cfg, rhs2);
     for (int i = 0; i < total_cells; ++i) grid.U[i] = (3.0 / 4.0) * U_n[i] + (1.0 / 4.0) * grid.U[i] + (1.0 / 4.0) * dt * rhs2[i];
     apply_boundary_conditions(grid, cfg);
     for (int i = 0; i < total_cells; ++i) grid.W[i] = consToPhys(grid.U[i], cfg.phys.gamma);
 
-    // РЎС‚Р°РґРёСЏ 3 -> U^{n+1}
+    // Стадия 3 -> U^{n+1}
     std::vector<Conserved> rhs3;
     compute_rhs(grid, cfg, rhs3);
     for (int i = 0; i < total_cells; ++i) grid.U[i] = (1.0 / 3.0) * U_n[i] + (2.0 / 3.0) * grid.U[i] + (2.0 / 3.0) * dt * rhs3[i];
@@ -116,7 +110,7 @@ void time_step(Grid& grid, double dt, const Config& cfg) {
         throw std::runtime_error("Unknown time integrator selected!");
     }
 
-    // Р¤РёРЅР°Р»СЊРЅРѕРµ РїСЂРёРјРµРЅРµРЅРёРµ Р“РЈ Рё РѕР±РЅРѕРІР»РµРЅРёРµ W РїРѕСЃР»Рµ РїРѕР»РЅРѕРіРѕ С€Р°РіР°
+    // Финальное применение ГУ и обновление W после полного шага
     apply_boundary_conditions(grid, cfg);
     for (size_t i = 0; i < grid.U.size(); ++i) {
         grid.W[i] = consToPhys(grid.U[i], cfg.phys.gamma);

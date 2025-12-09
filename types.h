@@ -47,6 +47,10 @@ struct Flux {
         return { rho_f - other.rho_f, rhou_f - other.rhou_f, E_f - other.E_f };
     }
 
+    Flux operator+(const Flux& other) const {
+        return { rho_f + other.rho_f, rhou_f + other.rhou_f, E_f + other.E_f };
+    }
+
     Flux operator*(double scalar) const {
         return { rho_f * scalar, rhou_f * scalar, E_f * scalar };
     }
@@ -123,9 +127,7 @@ enum class NumericalMethod {
     RODIONOV,
     ENO,
     WENO,
-    MACCORMACK,
-    HLL,
-    HLLC
+    MACCORMACK
 };
 
 // Тип аппроксимации начального давления
@@ -140,7 +142,11 @@ enum class ApproximationType {
 enum class RiemannSolverType {
     EXACT,
     ACOUSTIC,
-    ROE
+    HLL,
+    HLLC,
+    ROE,
+    RUSANOV,
+    OSHER
 };
 
 // Тип используемых переменных
@@ -175,6 +181,7 @@ struct Config {
     BoundaryType right_boundary;
     FluxCorrectionType flux_correction = FluxCorrectionType::NONE;
     double viscosity_coeff = 0.1; // Коэффициент вязкости (или диффузии)
+    bool run_riemann_comparison = false;     // Флаг для запуска сравнения всех решателей
 };
 
 

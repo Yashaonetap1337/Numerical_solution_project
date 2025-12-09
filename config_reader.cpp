@@ -45,8 +45,6 @@ static NumericalMethod parseMethod(const std::string& s) {
     if (lower == "eno") return NumericalMethod::ENO;
     if (lower == "weno") return NumericalMethod::WENO;
     if (lower == "maccormack") return NumericalMethod::MACCORMACK;
-    if (lower == "hll") return NumericalMethod::HLL;
-    if (lower == "hllc") return NumericalMethod::HLLC;
     throw std::runtime_error("Unknown numerical method: " + s);
 }
 
@@ -78,6 +76,10 @@ static RiemannSolverType parseRiemannSolverType(const std::string& s) {
     if (lower == "exact") return RiemannSolverType::EXACT;
     if (lower == "acoustic") return RiemannSolverType::ACOUSTIC;
     if (lower == "roe") return RiemannSolverType::ROE;
+    if (lower == "hll") return RiemannSolverType::HLL;
+    if (lower == "hllc") return RiemannSolverType::HLLC;
+    if (lower == "rusanov") return RiemannSolverType::RUSANOV;
+    if(lower == "osher") return RiemannSolverType::OSHER;
     throw std::runtime_error("Unknown Riemann solver type: " + s);
 }
 
@@ -214,6 +216,11 @@ Config readConfig(const std::string& filename) {
                 }
                 else if (key == "snapshots_directory") {
                     cfg.output.snapshots_directory = valueStr;
+                }
+                else if (key == "run_comparison") {
+                    std::string val = valueStr;
+                    std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+                    cfg.run_riemann_comparison = (val == "true" || val == "1" || val == "yes");
                 }
                 else throw std::runtime_error("Unknown output parameter: " + key);
             }
