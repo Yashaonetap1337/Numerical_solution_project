@@ -1,0 +1,63 @@
+[PhysicalParameters]
+# Номер теста (1-5). Если 0, то параметры берутся из left_bottom, left_top, right_bottom, right_top
+test_case = 0
+gamma = 1.4
+
+rho_left_bottom  = 1.0
+u_left_bottom    = 0.0      # u теперь 0, течение по вертикали
+v_left_bottom    = 0.75     # v получила скорость от бывшей u
+p_left_bottom    = 1.0
+
+rho_right_bottom = 1.0
+u_right_bottom   = 0.0
+v_right_bottom   = 0.75
+p_right_bottom   = 1.0
+
+# === ВЕРХ (y > 0) — бывшая "правая" область ===
+# Одинаково для левого и правого верхнего квадранта
+rho_left_top     = 0.125
+u_left_top       = 0.0
+v_left_top       = 0.0
+p_left_top       = 0.1
+
+rho_right_top    = 0.125
+u_right_top      = 0.0
+v_right_top      = 0.0
+p_right_top      = 0.1
+
+[GridParameters]
+x_min = 0.0
+x_max = 1.0
+y_min = 0.0
+y_max = 1.0
+x_diaphragm = 0.5
+y_diaphragm = 0.5
+Nx = 200
+Ny = 200
+t_final = 0.2
+CFL = 0.5
+
+[NumericalMethod]
+method = godunov            # godunov, acoustic, kolgan, rodionov, eno, weno, maccormack
+approximation = shock		# начальное приближение для точного решателя
+reconstruction = nonconservative # тип переменных для реконструкции
+time_integrator = euler     # euler или tvd_rk3
+riemann_solver = exact        # exact, acoustic, hll, hllc, roe, rusanov, osher
+flux_correction = none       # none, viscosity, fct
+visc_coeff = 0           # коэффициент вязкости (если используется)
+limiter = none            # общий лимитер
+slope_limiter = minmod       # для реконструкции (kolgan, rodionov)
+flux_limiter = none          # для коррекции потоков
+
+[Output]
+snapshot_output = none    # none, by_steps, by_time
+snapshot_interval_steps = 100
+snapshot_interval_time = 0.05
+snapshots_directory = snapshots
+run_comparison = false
+
+[BoundaryConditions]
+left_boundary = FREE
+right_boundary = FREE
+bottom_boundary = FREE
+top_boundary = FREE
