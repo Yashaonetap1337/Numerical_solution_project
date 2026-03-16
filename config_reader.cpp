@@ -32,6 +32,7 @@ static NumericalMethod parseMethod(const std::string& s) {
     if (lower == "eno") return NumericalMethod::ENO;
     if (lower == "weno") return NumericalMethod::WENO;
     if (lower == "maccormack") return NumericalMethod::MACCORMACK;
+    if (lower == "mader") return NumericalMethod::MADER;
     throw std::runtime_error("Unknown method: " + s);
 }
 
@@ -154,6 +155,15 @@ Config readConfig(const std::string& filename) {
                 else if (key == "u_right_top") cfg.phys.right_top.u = v;
                 else if (key == "v_right_top") cfg.phys.right_top.v = v;
                 else if (key == "p_right_top") cfg.phys.right_top.p = v;
+                else if (key == "Rgas") cfg.phys.Rgas = v;
+                else if (key == "M_molar") cfg.phys.M_molar = v;
+                else if (key == "E_act") cfg.phys.E_act = v;
+                else if (key == "Z_freq") cfg.phys.Z_freq = v;
+                else if (key == "VISC") cfg.phys.VISC = v;
+                else if (key == "MINWT") cfg.phys.MINWT = v;
+                else if (key == "MINGRHO") cfg.phys.MINGRHO = v;
+                else if (key == "GASW") cfg.phys.GASW = v;
+         
                 else throw std::runtime_error("Unknown physical key: " + key);
             }
             else if (section == "GridParameters") {

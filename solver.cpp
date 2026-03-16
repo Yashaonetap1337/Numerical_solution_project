@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include "debug_logger.h"
+#include "MaderSolver.h"
+
 
 static int get_required_fict_cells(const Config& cfg) {
     int req = 0;
@@ -27,6 +29,8 @@ static int get_required_fict_cells(const Config& cfg) {
         req = 4; break;
     case NumericalMethod::WENO:
         req = 3; break;
+    case NumericalMethod::MADER:   // <--- ДОБАВЬТЕ ЭТУ СТРОКУ
+        req = 1; break;            // Мейдеру достаточно 1 ячейки, но можно поставить и 2
     default:
         throw std::runtime_error("Number of fictitious cells not defined");
     }
@@ -70,6 +74,14 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
     Grid grid(cfg.grid.Nx, cfg.grid.Ny, num_fict);
     initialize_grid(grid, cfg);
 
+    OmegaField omega;
+    if (cfg.method == NumericalMethod::MADER) {
+        omega = make_omega_field(grid);
+        // Инициализация омега: 1.0 — ВВ, 0.0 — инертная среда (пример)
+        for (int i = 0; i < grid.Nx + 2 * num_fict; ++i)
+            for (int j = 0; j < grid.Ny + 2 * num_fict; ++j)
+                omega[i][j] = 1.0;
+    }
 
     log_initialization(grid, cfg);
 
@@ -101,7 +113,18 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
         double dt = calculate_timestep(grid, cfg);
         if (t + dt > cfg.grid.t_final) dt = cfg.grid.t_final - t;
 
-        if (cfg.method == NumericalMethod::RODIONOV) {
+        if (cfg.method == NumericalMethod::MADER) {
+            std::vector<std::vector<State>> W_next = grid.W;
+            // Шаг Мейдера
+            MaderTimeStep(grid, cfg, grid.W, W_next, omega, dt);
+
+            // Обновляем сетку результатами
+            grid.W = W_next;
+            for (int i = 0; i < grid.Nx + 2 * num_fict; ++i)
+                for (int j = 0; j < grid.Ny + 2 * num_fict; ++j)
+                    grid.U[i][j] = physToCons(grid.W[i][j], cfg.phys.gamma);
+        }
+        else if (cfg.method == NumericalMethod::RODIONOV) {
             rodionov_step(grid, dt, cfg);
         }
         else if (cfg.method == NumericalMethod::MACCORMACK) {

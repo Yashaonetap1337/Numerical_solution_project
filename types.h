@@ -59,6 +59,17 @@ struct PhysicalParameters {
     State left_top;
     State right_bottom;
     State right_top;
+
+    // Параметры для Мейдера
+    double Rgas = 8.314;       // Универсальная газовая постоянная
+    double M_molar = 0.028;    // Молярная масса
+    double E_act = 1e6;        // Энергия активации
+    double Z_freq = 1e9;       // Предэкспоненциальный множитель (частота)
+    double VISC = 0.2;         // Искусственная вязкость
+    double MINGRHO = 1e-6;     // Минимальная плотность
+    double MINWT = 300.0;      // Минимальная температура для реакции
+    double GASW = 0.01;        // Порог выгорания
+
 };
 
 struct GridParameters {
@@ -89,7 +100,7 @@ struct Grid {
 
 enum class SnapshotOutputType { NONE, BY_STEPS, BY_TIME };
 enum class BoundaryType { WALL, FREE, PERIODIC };
-enum class NumericalMethod { GODUNOV, ACOUSTIC, KOLGAN, RODIONOV, ENO, WENO, MACCORMACK };
+enum class NumericalMethod { GODUNOV, ACOUSTIC, KOLGAN, RODIONOV, ENO, WENO, MACCORMACK, MADER};
 enum class ApproximationType { RAREFACTION, SHOCK, ACOUSTIC, AVERAGE };
 enum class RiemannSolverType { EXACT, ACOUSTIC, HLL, HLLC, ROE, RUSANOV, OSHER };
 enum class TypesOfVarForReconstruction { CONSERVATIVE, NONCONSERVATIVE };

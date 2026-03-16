@@ -1,6 +1,6 @@
 [PhysicalParameters]
 # Ќомер теста (1-5). ≈сли 0, то параметры берутс€ из left_bottom, left_top, right_bottom, right_top
-test_case = 0
+test_case = 1
 gamma = 1.4
 
 rho_left_bottom  = 1.0
@@ -25,6 +25,16 @@ u_right_top      = 0.0
 v_right_top      = 0.0
 p_right_top      = 0.1
 
+Rgas = 1.0 # 8.314
+M_molar = 1.0 # 0.028
+E_act = 1e10
+Z_freq = 0   # 1e11
+VISC = 2.5
+MINGRHO = 1e-7
+MINWT = 0.01
+GASW = 0.01
+
+
 [GridParameters]
 x_min = 0.0
 x_max = 1.0
@@ -33,12 +43,12 @@ y_max = 1.0
 x_diaphragm = 0.5
 y_diaphragm = 0.5
 Nx = 200
-Ny = 200
+Ny = 1
 t_final = 0.2
-CFL = 0.5
+CFL = 0.05
 
 [NumericalMethod]
-method = godunov            # godunov, acoustic, kolgan, rodionov, eno, weno, maccormack
+method = mader            # godunov, acoustic, kolgan, rodionov, eno, weno, maccormack, mader
 approximation = shock		# начальное приближение дл€ точного решател€
 reconstruction = nonconservative # тип переменных дл€ реконструкции
 time_integrator = euler     # euler или tvd_rk3
