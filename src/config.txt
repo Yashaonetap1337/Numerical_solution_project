@@ -1,0 +1,71 @@
+[PhysicalParameters]
+test_case = 6
+gamma = 3.0
+
+# Detonator (CJ products): rho_CJ=rho0*(g+1)/g=2.4533, u_CJ=D_CJ/(g+1)=0.22
+rho_left_bottom  = 2.4533
+u_left_bottom    = 0.22
+v_left_bottom    = 0.0
+p_left_bottom    = 0.3562
+
+rho_left_top     = 2.4533
+u_left_top       = 0.22
+v_left_top       = 0.0
+p_left_top       = 0.3562
+
+rho_right_bottom = 1.84
+u_right_bottom   = 0.0
+v_right_bottom   = 0.0
+p_right_bottom   = 0.0
+
+rho_right_top    = 1.84
+u_right_top      = 0.0
+v_right_top      = 0.0
+p_right_top      = 0.0
+
+Rgas    = 8.31
+M_molar = 2.0
+E_act   = 20000.0
+# Thin-zone (unresolved) detonation: Z large → reaction completes in <1 cell.
+# This is required for CJ self-sustaining wave on Nx=200 grid with E*=20000 K.
+# Z=50 fails: Taylor rarefaction cools gas to T~14000 K → tau_99=0.38 us → 66 cells.
+# Z=5000: tau_99~0.0014 us → 0.25 cells → thin zone, D≈D_CJ maintained.
+Z_freq  = 5e9
+VISC    = 0.0
+MINWT   = 0.0
+GASW    = 0.02
+MINGRHO = 0.5
+T_init  = 800.0
+
+[GridParameters]
+x_min = 0.0
+x_max = 9.0
+y_min = 0.0
+y_max = 4.0
+x_diaphragm = 0.03
+y_diaphragm = 0.5
+Nx = 181
+Ny = 81
+t_final = 4.0
+CFL = 0.125
+
+[NumericalMethod]
+method = mader
+approximation = shock
+reconstruction = nonconservative
+time_integrator = euler
+riemann_solver = exact
+flux_correction = none
+visc_coeff = 0.5
+
+[Output]
+snapshot_output = BY_TIME
+snapshot_interval_time = 0.1
+snapshots_directory = snapshots
+run_comparison = false
+
+[BoundaryConditions]
+left_boundary  = FREE
+right_boundary = FREE
+bottom_boundary = FREE
+top_boundary    = FREE
