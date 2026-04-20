@@ -1,0 +1,16 @@
+Sod shock tube — FLIC method
+Nx=200, CFL=0.5, t_final=0.2
+dx = 0.00500
+Typical dt = 2.11289e-03  (CFL * dx / a_L, a_L = sqrt(1.4))
+
+Control points (exact solution at t=0.2):
+  x=0.60: rho=0.4263  p=0.3031  u=0.9274
+  x=0.75: rho=0.2656  p=0.3031  u=0.9274
+
+Numerical values (interpolated from CSV):
+  x=0.60: rho=0.4268  p=0.3031  u=0.9271
+  x=0.75: rho=0.2670  p=0.3030  u=0.9269
+
+Absolute errors:
+  x=0.60: drho=0.0005  dp=0.0000  du=0.0003
+  x=0.75: drho=0.0014  dp=0.0001  du=0.0005
