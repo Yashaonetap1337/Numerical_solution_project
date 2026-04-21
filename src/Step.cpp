@@ -22,7 +22,7 @@ struct PISO_Solver {
     vector<double> auP, avP;
     vector<bool> blocked_cells;
 
-    PISO_Solver(string test) : test_name(test), RHO(1.0), RE(100.0), U_LID(1.0) {
+    PISO_Solver(string test) : test_name(test), RHO(1.0), RE(300.0), U_LID(1.0) {
         if (test == "cavity") {
             NX = 31; NY = 31;
             LX = 1.0; LY = 1.0;
