@@ -25,11 +25,6 @@ static void apply_bc_to_tilde(StateField& W_tilde, Grid& grid, const Config& cfg
 }
 
 // CHECK: FLIC_LAGRANGE
-// Lagrange stage: pressure gradients update velocity and energy, density unchanged.
-// Face pressures: p_{i+1/2} = 0.5*(p_i + p_{i+1}), face velocities same.
-// u_tilde = u - (dt/rho)*(p_{i+1/2} - p_{i-1/2})/dx
-// E_tilde = E - dt*(p_{i+1/2}*u_{i+1/2} - p_{i-1/2}*u_{i-1/2})/dx
-// p_tilde = (gamma-1)*(E_tilde - 0.5*rho*(u_tilde^2 + v^2))
 static void flic_lagrange(const Grid& grid, const Config& cfg,
     StateField& W_tilde, double dt, int dir)
 {
@@ -112,12 +107,6 @@ static void flic_lagrange(const Grid& grid, const Config& cfg,
 }
 
 // CHECK: FLIC_EULER
-// Euler (advection) stage: upwind donor-cell transport using W_tilde from Lagrange stage.
-// Donor selection: u_face > 0 → donor is left cell (i), else right cell (i+1).
-// Mass flux:   F_rho  = rho_donor * u_donor
-// Mom flux X:  F_rhou = rho_donor * u_donor * u_donor
-// Mom flux Y:  F_rhov = rho_donor * u_donor * v_donor
-// Energy flux: F_E    = u_donor * E_donor   (pressure work already done in Lagrange)
 static void flic_euler(const StateField& W_tilde, Grid& grid,
     const Config& cfg, double dt, int dir)
 {
@@ -176,11 +165,6 @@ static void flic_euler(const StateField& W_tilde, Grid& grid,
                                    + 0.5 * rho_t * (u_t * u_t + v_t * v_t);
 
                 // CHECK: FLIC_CONSERV
-                // Conservative update via flux difference (telescoping):
-                // rho_new  = rho_tilde  - dt/dx * (F_rho_R  - F_rho_L)
-                // rhou_new = rhou_tilde - dt/dx * (F_rhou_R - F_rhou_L)
-                // rhov_new = rhov_tilde - dt/dx * (F_rhov_R - F_rhov_L)
-                // E_new    = E_tilde    - dt/dx * (F_E_R    - F_E_L)
                 double rho_new  = rho_t             - dt / dx * (rho_flux_R  - rho_flux_L);
                 double rhou_new = rho_t * u_t       - dt / dx * (rhou_flux_R - rhou_flux_L);
                 double rhov_new = rho_t * v_t       - dt / dx * (rhov_flux_R - rhov_flux_L);

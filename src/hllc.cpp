@@ -26,6 +26,15 @@ static void hllc_wave_speeds(const State& W_L, const State& W_R, double gamma, c
     S_M = u_star;
 }
 
+// CHECK: HLLC_SOLVER
+// HLLC Riemann solver (Toro 1994).
+// Wave speed estimates: S_L = u_L - a_L*q_L,  S_R = u_R + a_R*q_R,  S_M = u* (contact)
+// where q_k = 1 if p* <= p_k, else sqrt(1 + (gamma+1)/(2*gamma)*(p*/p_k - 1))
+// Flux selection:
+//   S_L >= 0  →  F = F_L
+//   S_M >= 0  →  F = F_L + S_L*(U*_L - U_L)   (left star region)
+//   S_R > 0   →  F = F_R + S_R*(U*_R - U_R)   (right star region)
+//   else      →  F = F_R
 Flux hllc_flux(const State& W_L, const State& W_R, double gamma, char dir, WaveSpeedMethod method) {
     double S_L, S_R, S_M;
     hllc_wave_speeds(W_L, W_R, gamma, dir, S_L, S_R, S_M);

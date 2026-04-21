@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 
+// CHECK: STATE_VECTOR_2D
 struct State {
     double rho = 0.0;
     double u = 0.0;
@@ -104,7 +105,7 @@ struct Grid {
 
 enum class SnapshotOutputType { NONE, BY_STEPS, BY_TIME };
 enum class BoundaryType { WALL, FREE, PERIODIC, INFLOW, OUTFLOW };
-enum class NumericalMethod { GODUNOV, ACOUSTIC, KOLGAN, RODIONOV, ENO, WENO, MACCORMACK, MADER};
+enum class NumericalMethod { GODUNOV, ACOUSTIC, KOLGAN, RODIONOV, ENO, WENO, MACCORMACK, MADER, FLIC };
 enum class ApproximationType { RAREFACTION, SHOCK, ACOUSTIC, AVERAGE };
 enum class RiemannSolverType { EXACT, ACOUSTIC, HLL, HLLC, ROE, RUSANOV, OSHER };
 enum class TypesOfVarForReconstruction { CONSERVATIVE, NONCONSERVATIVE };

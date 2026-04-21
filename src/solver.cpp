@@ -13,9 +13,11 @@
 #include <stdexcept>
 #include "debug_logger.h"
 #include "MaderSolver.h"
+#include "flic.h"
 #include <map>
 #include "mesh_io.h"
 #include "unstructured_solver.h"
+#include <filesystem>
 
 static int get_required_fict_cells(const Config& cfg) {
     int req = 0;
@@ -32,6 +34,8 @@ static int get_required_fict_cells(const Config& cfg) {
     case NumericalMethod::WENO:
         req = 3; break;
     case NumericalMethod::MADER:
+        req = 1; break;
+    case NumericalMethod::FLIC:
         req = 1; break;
     default:
         throw std::runtime_error("Number of fictitious cells not defined");
@@ -55,6 +59,7 @@ static double calculate_timestep(const Grid& grid, const Config& cfg) {
 }
 
 void save_snapshot(const Grid& grid, const Config& cfg, int step, double t, const std::string& filename) {
+    std::filesystem::create_directories(cfg.output.snapshots_directory);
     std::string full = cfg.output.snapshots_directory + "/" + filename;
     std::ofstream f(full);
     if (!f.is_open()) {
@@ -144,6 +149,12 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
                 grid.W[i][j] = consToPhys(grid.U[i][j], cfg.phys.gamma);
         apply_boundary_conditions(grid, cfg);
 
+        // CHECK: CFL_2D
+        // 2D CFL condition: dt = CFL * min(dx/(|u|+a), dy/(|v|+a))
+        // Both directions constrain dt independently — 1D formula dt=CFL*dx/(|u|+a) is WRONG in 2D.
+        // CHECK: FLIC_CFL
+        // dt = CFL * min(dx / max(|u|+a), dy / max(|v|+a))
+        // Typical for Sod FLIC (Nx=200, CFL=0.5): dt ~ 2.1e-3, t_final=0.2 => ~95 steps
         double dt = calculate_timestep(grid, cfg);
         if (t + dt > cfg.grid.t_final) dt = cfg.grid.t_final - t;
 
@@ -195,6 +206,9 @@ void run_simulation(const Config& cfg, const std::string& outputFilename) {
         }
         else if (cfg.method == NumericalMethod::MACCORMACK) {
             maccormack_step(grid, dt, cfg);
+        }
+        else if (cfg.method == NumericalMethod::FLIC) {
+            flic_step(grid, dt, cfg);
         }
         else {
             time_step(grid, dt, cfg);
