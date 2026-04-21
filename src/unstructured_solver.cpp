@@ -1,12 +1,12 @@
 // unstructured_solver.cpp
 #include "unstructured_solver.h"
 #include "euler_utils.h"
-#include "choice_of_riemann_solvers.h"   // для compute_interface_flux
+#include "choice_of_riemann_solvers.h"   // Г¤Г«Гї compute_interface_flux
 #include <iostream>
 #include <fstream>
-
+//CHECK: GHOST_STATE
 // ------------------------------------------------------------
-//  ghost_state – вычисление призрачного состояния для границы
+//  ghost_state вЂ“ ГўГ»Г·ГЁГ±Г«ГҐГ­ГЁГҐ ГЇГ°ГЁГ§Г°Г Г·Г­Г®ГЈГ® Г±Г®Г±ГІГ®ГїГ­ГЁГї Г¤Г«Гї ГЈГ°Г Г­ГЁГ¶Г»
 // ------------------------------------------------------------
 static State ghost_state(const State& WL, double nx, double ny,
     BoundaryType bc, const Config& cfg) {
@@ -24,10 +24,10 @@ static State ghost_state(const State& WL, double nx, double ny,
         return Wg;
     }
     case BoundaryType::OUTFLOW: {
-        // Фиксируем статическое давление, остальное экстраполируем из внутренней ячейки
+        // Г”ГЁГЄГ±ГЁГ°ГіГҐГ¬ Г±ГІГ ГІГЁГ·ГҐГ±ГЄГ®ГҐ Г¤Г ГўГ«ГҐГ­ГЁГҐ, Г®Г±ГІГ Г«ГјГ­Г®ГҐ ГЅГЄГ±ГІГ°Г ГЇГ®Г«ГЁГ°ГіГҐГ¬ ГЁГ§ ГўГ­ГіГІГ°ГҐГ­Г­ГҐГ© ГїГ·ГҐГ©ГЄГЁ
         State Wg = WL;
-        Wg.p = cfg.phys.outflow_pressure;  // нужно добавить в Config
-        // Плотность и скорость не меняем (или можно экстраполировать)
+        Wg.p = cfg.phys.outflow_pressure;  // Г­ГіГ¦Г­Г® Г¤Г®ГЎГ ГўГЁГІГј Гў Config
+        // ГЏГ«Г®ГІГ­Г®Г±ГІГј ГЁ Г±ГЄГ®Г°Г®Г±ГІГј Г­ГҐ Г¬ГҐГ­ГїГҐГ¬ (ГЁГ«ГЁ Г¬Г®Г¦Г­Г® ГЅГЄГ±ГІГ°Г ГЇГ®Г«ГЁГ°Г®ГўГ ГІГј)
         return Wg;
     }
     case BoundaryType::FREE:
@@ -35,17 +35,17 @@ static State ghost_state(const State& WL, double nx, double ny,
         return WL;
     }
 }
-
+//CHECK: UNSTRUCT_SCHEMES
 // ------------------------------------------------------------
-//  compute_residuals_unstructured – общая для всех методов,
-//  зависит от cfg.method, cfg.riemann_solver_type
+//  compute_residuals_unstructured вЂ“ Г®ГЎГ№Г Гї Г¤Г«Гї ГўГ±ГҐГµ Г¬ГҐГІГ®Г¤Г®Гў,
+//  Г§Г ГўГЁГ±ГЁГІ Г®ГІ cfg.method, cfg.riemann_solver_type
 // ------------------------------------------------------------
 void compute_residuals_unstructured(Mesh& mesh, const Config& cfg) {
     mesh.zero_res();
     const double gamma = cfg.phys.gamma;
 
     for (const Face& f : mesh.faces) {
-        // Левая ячейка всегда существует
+        // Г‹ГҐГўГ Гї ГїГ·ГҐГ©ГЄГ  ГўГ±ГҐГЈГ¤Г  Г±ГіГ№ГҐГ±ГІГўГіГҐГІ
         const Cell& left_cell = mesh.cells[f.left];
         State W_left = consToPhys(left_cell.U, gamma);
 
@@ -58,10 +58,10 @@ void compute_residuals_unstructured(Mesh& mesh, const Config& cfg) {
             W_right = consToPhys(right_cell.U, gamma);
         }
 
-        // Вычисляем поток через грань с учётом нормали
+        // Г‚Г»Г·ГЁГ±Г«ГїГҐГ¬ ГЇГ®ГІГ®ГЄ Г·ГҐГ°ГҐГ§ ГЈГ°Г Г­Гј Г± ГіГ·ВёГІГ®Г¬ Г­Г®Г°Г¬Г Г«ГЁ
         Flux flux = compute_interface_flux(W_left, W_right, cfg, f.nx, f.ny);
 
-        // Добавляем вклад в невязки
+        // Г„Г®ГЎГ ГўГ«ГїГҐГ¬ ГўГЄГ«Г Г¤ Гў Г­ГҐГўГїГ§ГЄГЁ
         mesh.cells[f.left].res.rho -= flux.rho_f * f.length;
         mesh.cells[f.left].res.rhou -= flux.rhou_f * f.length;
         mesh.cells[f.left].res.rhov -= flux.rhov_f * f.length;
@@ -77,7 +77,7 @@ void compute_residuals_unstructured(Mesh& mesh, const Config& cfg) {
 }
 
 // ------------------------------------------------------------
-//  compute_dt_unstructured – условие Куранта
+//  compute_dt_unstructured вЂ“ ГіГ±Г«Г®ГўГЁГҐ ГЉГіГ°Г Г­ГІГ 
 // ------------------------------------------------------------
 double compute_dt_unstructured(const Mesh& mesh, const Config& cfg) {
     double CFL = cfg.grid.CFL;
@@ -85,7 +85,7 @@ double compute_dt_unstructured(const Mesh& mesh, const Config& cfg) {
     const double gamma = cfg.phys.gamma;
 
     for (const Face& f : mesh.faces) {
-        // Проверяем обе ячейки, прилегающие к грани
+        // ГЏГ°Г®ГўГҐГ°ГїГҐГ¬ Г®ГЎГҐ ГїГ·ГҐГ©ГЄГЁ, ГЇГ°ГЁГ«ГҐГЈГ ГѕГ№ГЁГҐ ГЄ ГЈГ°Г Г­ГЁ
         for (int side = 0; side < 2; ++side) {
             int ci = (side == 0) ? f.left : f.right;
             if (ci < 0) continue;
@@ -97,7 +97,7 @@ double compute_dt_unstructured(const Mesh& mesh, const Config& cfg) {
             double a = std::sqrt(gamma * p / rho);
             double un = u * f.nx + v * f.ny;
             double lambda = std::abs(un) + a;
-            double h = cell.vol / f.length;   // характерный размер
+            double h = cell.vol / f.length;   // ГµГ Г°Г ГЄГІГҐГ°Г­Г»Г© Г°Г Г§Г¬ГҐГ°
             dt = std::min(dt, CFL * h / (lambda + 1e-12));
         }
     }
@@ -105,7 +105,7 @@ double compute_dt_unstructured(const Mesh& mesh, const Config& cfg) {
 }
 
 // ------------------------------------------------------------
-//  update_solution_unstructured – простой Эйлер (для начала)
+//  update_solution_unstructured вЂ“ ГЇГ°Г®Г±ГІГ®Г© ГќГ©Г«ГҐГ° (Г¤Г«Гї Г­Г Г·Г Г«Г )
 // ------------------------------------------------------------
 void update_solution_unstructured(Mesh& mesh, double dt, const Config& cfg) {
     const double gamma = cfg.phys.gamma;
@@ -115,19 +115,19 @@ void update_solution_unstructured(Mesh& mesh, double dt, const Config& cfg) {
         cell.U.rhov += dt / cell.vol * cell.res.rhov;
         cell.U.E += dt / cell.vol * cell.res.E;
 
-        // Предохранители
+        // ГЏГ°ГҐГ¤Г®ГµГ°Г Г­ГЁГІГҐГ«ГЁ
         if (cell.U.rho < 1e-12) cell.U.rho = 1e-12;
         double rho = cell.U.rho;
         double u = cell.U.rhou / rho;
         double v = cell.U.rhov / rho;
         double p = (gamma - 1.0) * (cell.U.E - 0.5 * rho * (u * u + v * v));
         if (p < 1e-12) p = 1e-12;
-        // При необходимости можно пересчитать U.E из p (для устойчивости)
+        // ГЏГ°ГЁ Г­ГҐГ®ГЎГµГ®Г¤ГЁГ¬Г®Г±ГІГЁ Г¬Г®Г¦Г­Г® ГЇГҐГ°ГҐГ±Г·ГЁГІГ ГІГј U.E ГЁГ§ p (Г¤Г«Гї ГіГ±ГІГ®Г©Г·ГЁГўГ®Г±ГІГЁ)
     }
 }
 
 // ------------------------------------------------------------
-//  time_step_unstructured – один шаг по времени
+//  time_step_unstructured вЂ“ Г®Г¤ГЁГ­ ГёГ ГЈ ГЇГ® ГўГ°ГҐГ¬ГҐГ­ГЁ
 // ------------------------------------------------------------
 void time_step_unstructured(Mesh& mesh, double dt, const Config& cfg) {
     switch (cfg.time_integrator) {
@@ -136,25 +136,25 @@ void time_step_unstructured(Mesh& mesh, double dt, const Config& cfg) {
         update_solution_unstructured(mesh, dt, cfg);
         break;
     case TimeIntegrator::TVD_RK3: {
-        // Сохраняем начальное состояние
+        // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ Г­Г Г·Г Г«ГјГ­Г®ГҐ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ
         std::vector<Conserved> U0(mesh.cells.size());
         for (size_t i = 0; i < mesh.cells.size(); ++i)
             U0[i] = mesh.cells[i].U;
 
-        // Стадия 1
+        // Г‘ГІГ Г¤ГЁГї 1
         compute_residuals_unstructured(mesh, cfg);
         for (size_t i = 0; i < mesh.cells.size(); ++i) {
             mesh.cells[i].U = U0[i] + (dt / mesh.cells[i].vol) * mesh.cells[i].res;
         }
 
-        // Стадия 2
+        // Г‘ГІГ Г¤ГЁГї 2
         compute_residuals_unstructured(mesh, cfg);
         for (size_t i = 0; i < mesh.cells.size(); ++i) {
             Conserved U1 = U0[i] + (dt / mesh.cells[i].vol) * mesh.cells[i].res;
             mesh.cells[i].U = 0.75 * U0[i] + 0.25 * U1;
         }
 
-        // Стадия 3
+        // Г‘ГІГ Г¤ГЁГї 3
         compute_residuals_unstructured(mesh, cfg);
         for (size_t i = 0; i < mesh.cells.size(); ++i) {
             Conserved U2 = mesh.cells[i].U;
@@ -169,7 +169,7 @@ void time_step_unstructured(Mesh& mesh, double dt, const Config& cfg) {
 }
 
 // ------------------------------------------------------------
-//  init_mesh – начальные условия по четырём квадрантам
+//  init_mesh вЂ“ Г­Г Г·Г Г«ГјГ­Г»ГҐ ГіГ±Г«Г®ГўГЁГї ГЇГ® Г·ГҐГІГ»Г°ВёГ¬ ГЄГўГ Г¤Г°Г Г­ГІГ Г¬
 // ------------------------------------------------------------
 void init_mesh(Mesh& mesh, const Config& cfg) {
     const double x_dia = cfg.grid.x_diaphragm;
@@ -191,7 +191,7 @@ void init_mesh(Mesh& mesh, const Config& cfg) {
     }
 }
 // ------------------------------------------------------------
-//  interpolate_to_nodes – взвешенное усреднение с ячеек на узлы
+//  interpolate_to_nodes вЂ“ ГўГ§ГўГҐГёГҐГ­Г­Г®ГҐ ГіГ±Г°ГҐГ¤Г­ГҐГ­ГЁГҐ Г± ГїГ·ГҐГҐГЄ Г­Г  ГіГ§Г«Г»
 // ------------------------------------------------------------
 static std::vector<State> interpolate_to_nodes(const Mesh& mesh, double gamma) {
     const int n_nodes = mesh.nodes.size();
@@ -221,7 +221,7 @@ static std::vector<State> interpolate_to_nodes(const Mesh& mesh, double gamma) {
 }
 
 // ------------------------------------------------------------
-//  save_snapshot_unstructured – теперь пишет значения в узлах
+//  save_snapshot_unstructured вЂ“ ГІГҐГЇГҐГ°Гј ГЇГЁГёГҐГІ Г§Г­Г Г·ГҐГ­ГЁГї Гў ГіГ§Г«Г Гµ
 // ------------------------------------------------------------
 void save_snapshot_unstructured(const Mesh& mesh, const Config& cfg,
     int step, double t, const std::string& filename) {
@@ -235,12 +235,12 @@ void save_snapshot_unstructured(const Mesh& mesh, const Config& cfg,
     const double gamma = cfg.phys.gamma;
     auto node_state = interpolate_to_nodes(mesh, gamma);
 
-    // Заголовок — добавляем n0/n1/n2 для передачи топологии в Python
+    // Г‡Г ГЈГ®Г«Г®ГўГ®ГЄ вЂ” Г¤Г®ГЎГ ГўГ«ГїГҐГ¬ n0/n1/n2 Г¤Г«Гї ГЇГҐГ°ГҐГ¤Г Г·ГЁ ГІГ®ГЇГ®Г«Г®ГЈГЁГЁ Гў Python
     f << "x,y,rho,u,v,p,E,step,time\n";
     for (int i = 0; i < (int)mesh.nodes.size(); ++i) {
         const auto& nd = mesh.nodes[i];
         const State& W = node_state[i];
-        // E пересчитываем из узловых p/rho/u/v
+        // E ГЇГҐГ°ГҐГ±Г·ГЁГІГ»ГўГ ГҐГ¬ ГЁГ§ ГіГ§Г«Г®ГўГ»Гµ p/rho/u/v
         double E = W.p / (gamma - 1.0) + 0.5 * W.rho * (W.u * W.u + W.v * W.v);
         f << nd.x << "," << nd.y << ","
             << W.rho << "," << W.u << "," << W.v << "," << W.p << ","
@@ -248,7 +248,7 @@ void save_snapshot_unstructured(const Mesh& mesh, const Config& cfg,
     }
     f.close();
 }
-// Вариант: два файла — nodes + triangles (один раз, не в каждом снимке)
+// Г‚Г Г°ГЁГ Г­ГІ: Г¤ГўГ  ГґГ Г©Г«Г  вЂ” nodes + triangles (Г®Г¤ГЁГ­ Г°Г Г§, Г­ГҐ Гў ГЄГ Г¦Г¤Г®Г¬ Г±Г­ГЁГ¬ГЄГҐ)
 void save_mesh_topology(const Mesh& mesh, const Config& cfg) {
     std::string full = cfg.output.snapshots_directory + "/mesh_topology.csv";
     std::ofstream f(full);
@@ -258,7 +258,7 @@ void save_mesh_topology(const Mesh& mesh, const Config& cfg) {
     f.close();
 }
 // ------------------------------------------------------------
-//  run_unstructured – главный цикл
+//  run_unstructured вЂ“ ГЈГ«Г ГўГ­Г»Г© Г¶ГЁГЄГ«
 // ------------------------------------------------------------
 void run_unstructured(Mesh& mesh, const Config& cfg, const std::string& output_filename) {
     init_mesh(mesh, cfg);
@@ -267,11 +267,11 @@ void run_unstructured(Mesh& mesh, const Config& cfg, const std::string& output_f
     double t = 0.0;
     int step = 0;
 
-    // Настройки вывода снимков
+    // ГЌГ Г±ГІГ°Г®Г©ГЄГЁ ГўГ»ГўГ®Г¤Г  Г±Г­ГЁГ¬ГЄГ®Гў
     int next_snapshot_step = 0;
     double next_snapshot_time = 0.0;
     if (cfg.output.snapshot_output != SnapshotOutputType::NONE) {
-        // Сохраняем начальное состояние
+        // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ Г­Г Г·Г Г«ГјГ­Г®ГҐ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ
         save_snapshot_unstructured(mesh, cfg, 0, 0.0, "initial_state.csv");
         if (cfg.output.snapshot_output == SnapshotOutputType::BY_STEPS)
             next_snapshot_step = cfg.output.snapshot_interval_steps;
@@ -287,7 +287,7 @@ void run_unstructured(Mesh& mesh, const Config& cfg, const std::string& output_f
         t += dt;
         ++step;
 
-        // Сохранение снимков
+        // Г‘Г®ГµГ°Г Г­ГҐГ­ГЁГҐ Г±Г­ГЁГ¬ГЄГ®Гў
         bool save = false;
         std::string snap_name;
         if (cfg.output.snapshot_output == SnapshotOutputType::BY_STEPS && step >= next_snapshot_step) {
@@ -309,11 +309,11 @@ void run_unstructured(Mesh& mesh, const Config& cfg, const std::string& output_f
         }
     }
 
-    // Сохраняем финальное состояние
+    // Г‘Г®ГµГ°Г Г­ГїГҐГ¬ ГґГЁГ­Г Г«ГјГ­Г®ГҐ Г±Г®Г±ГІГ®ГїГ­ГЁГҐ
     if (cfg.output.snapshot_output != SnapshotOutputType::NONE)
         save_snapshot_unstructured(mesh, cfg, step, t, "final_state.csv");
 
-    // Вывод результата в CSV (можно сохранить как snapshot, но оставим для совместимости)
+    // Г‚Г»ГўГ®Г¤ Г°ГҐГ§ГіГ«ГјГІГ ГІГ  Гў CSV (Г¬Г®Г¦Г­Г® Г±Г®ГµГ°Г Г­ГЁГІГј ГЄГ ГЄ snapshot, Г­Г® Г®Г±ГІГ ГўГЁГ¬ Г¤Г«Гї Г±Г®ГўГ¬ГҐГ±ГІГЁГ¬Г®Г±ГІГЁ)
     std::ofstream fout(output_filename);
     if (!fout.is_open()) throw std::runtime_error("Cannot open " + output_filename);
     fout << "x,y,rho,u,v,p,E\n";
