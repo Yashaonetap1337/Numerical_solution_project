@@ -119,7 +119,7 @@ struct OutputParams {
     double snapshot_interval_time = 0.02;
     std::string snapshots_directory = "snapshots";
 };
-
+//CHECK: MESH_STRUCTS
 struct Node {
     double x, y;
 };
