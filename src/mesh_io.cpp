@@ -15,7 +15,7 @@ Mesh load_msh(const std::string& filename,
     Mesh mesh;
     std::string line;
 
-    // Убираем \r для файлов в Windows-формате (CRLF)
+    // Г“ГЎГЁГ°Г ГҐГ¬ \r Г¤Г«Гї ГґГ Г©Г«Г®Гў Гў Windows-ГґГ®Г°Г¬Г ГІГҐ (CRLF)
     auto getline_clean = [&](std::string& s) -> bool {
         if (!std::getline(f, s)) return false;
         if (!s.empty() && s.back() == '\r') s.pop_back();
@@ -41,7 +41,7 @@ Mesh load_msh(const std::string& filename,
 
     std::map<std::pair<int, int>, int> edge_phys;
 
-    // Таблица числа узлов для типов элементов MSH v2
+    // Г’Г ГЎГ«ГЁГ¶Г  Г·ГЁГ±Г«Г  ГіГ§Г«Г®Гў Г¤Г«Гї ГІГЁГЇГ®Гў ГЅГ«ГҐГ¬ГҐГ­ГІГ®Гў MSH v2
     static const std::map<int, int> type_nodes = {
         {1,2},{2,3},{3,4},{4,4},{5,8},{6,6},{7,5},
         {8,3},{9,6},{10,9},{11,10},{15,1},{16,8},{17,20}
@@ -88,7 +88,7 @@ Mesh load_msh(const std::string& filename,
     }
     return mesh;
 }
-
+//CHECK: BUILD_FACES
 void cell_geometry(Mesh& mesh) {
     for (auto& cell : mesh.cells) {
         const Node& n0 = mesh.nodes[cell.node_ids[0]];
@@ -106,7 +106,7 @@ void build_faces(Mesh& mesh) {
     using Edge = std::pair<int, int>;
     std::map<Edge, std::vector<int>> edge_to_cells;
 
-    // Собираем рёбра всех треугольников
+    // Г‘Г®ГЎГЁГ°Г ГҐГ¬ Г°ВёГЎГ°Г  ГўГ±ГҐГµ ГІГ°ГҐГіГЈГ®Г«ГјГ­ГЁГЄГ®Гў
     for (size_t ci = 0; ci < mesh.cells.size(); ++ci) {
         const auto& cell = mesh.cells[ci];
         int n0 = cell.node_ids[0];
@@ -127,21 +127,21 @@ void build_faces(Mesh& mesh) {
         Face f;
         f.n0 = e.first;
         f.n1 = e.second;
-        // Геометрия грани
+        // ГѓГҐГ®Г¬ГҐГІГ°ГЁГї ГЈГ°Г Г­ГЁ
         double x0 = mesh.nodes[f.n0].x, y0 = mesh.nodes[f.n0].y;
         double x1 = mesh.nodes[f.n1].x, y1 = mesh.nodes[f.n1].y;
         double dx = x1 - x0, dy = y1 - y0;
         f.length = std::hypot(dx, dy);
         f.mx = (x0 + x1) * 0.5;
         f.my = (y0 + y1) * 0.5;
-        // Начальная нормаль (левая)
+        // ГЌГ Г·Г Г«ГјГ­Г Гї Г­Г®Г°Г¬Г Г«Гј (Г«ГҐГўГ Гї)
         f.nx = dy / f.length;
         f.ny = -dx / f.length;
 
         if (owners.size() == 2) {
             f.left = owners[0];
             f.right = owners[1];
-            // Корректируем нормаль: она должна смотреть от left к right
+            // ГЉГ®Г°Г°ГҐГЄГІГЁГ°ГіГҐГ¬ Г­Г®Г°Г¬Г Г«Гј: Г®Г­Г  Г¤Г®Г«Г¦Г­Г  Г±Г¬Г®ГІГ°ГҐГІГј Г®ГІ left ГЄ right
             double dcx = mesh.cells[f.right].cx - mesh.cells[f.left].cx;
             double dcy = mesh.cells[f.right].cy - mesh.cells[f.left].cy;
             if (f.nx * dcx + f.ny * dcy < 0) {
@@ -152,7 +152,7 @@ void build_faces(Mesh& mesh) {
         else {
             f.left = owners[0];
             f.right = -1;
-            // Для границы нормаль направляем наружу
+            // Г„Г«Гї ГЈГ°Г Г­ГЁГ¶Г» Г­Г®Г°Г¬Г Г«Гј Г­Г ГЇГ°Г ГўГ«ГїГҐГ¬ Г­Г Г°ГіГ¦Гі
             double cx = mesh.cells[f.left].cx;
             double cy = mesh.cells[f.left].cy;
             double dot = f.nx * (f.mx - cx) + f.ny * (f.my - cy);
