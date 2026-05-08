@@ -78,9 +78,9 @@ python scripts/run_levelB.py
 python scripts/run_levelB.py --M 3 --theta 21
 ```
 
-Выход: `results_levelB/{M3,M5}/M{3,5}_theta{...}.png` + `results_levelB/phase_diagram.png`. Время: ~80 минут.
+Выход: `results_levelB/{M3,M5}/M{3,5}_theta{...}.png` Время: ~50 минут.
 
-При cold-start RR-конфигурация удерживается до критерия detachment θ_w^D, после чего происходит переход в MR. Sweep с шагом 1° даёт точность определения θ_cr порядка ±0.5°.
+При cold-start RR-конфигурация удерживается до критерия detachment θ_w^D, после чего происходит переход в MR. Sweep с шагом 1° даёт точность определения θ_cr порядка ±2°.
 
 ### Уровень C — петля гистерезиса (M=5)
 
